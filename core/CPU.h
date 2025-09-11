@@ -47,12 +47,40 @@ public:
         CS,
         SS,
         DS,
+        FS,
+        GS,
+    };
+
+    enum class Reg32
+    {
+        EAX = 0,
+        ECX,
+        EDX,
+        EBX,
+
+        // index registers
+        ESP,
+        EBP,
+        ESI,
+        EDI,
+
+        // program counter
+        EIP,
+
+        // hole for segments
+
+        CR0 = 15,
+        CR1,
+        CR2,
+        CR3,
     };
 
     uint8_t reg(Reg8 r) const {return reinterpret_cast<const uint8_t *>(regs)[((static_cast<int>(r) & 3) << 2) + (static_cast<int>(r) >> 2)];}
     uint8_t &reg(Reg8 r) {return reinterpret_cast<uint8_t *>(regs)[((static_cast<int>(r) & 3) << 2) + (static_cast<int>(r) >> 2)];}
     uint16_t reg(Reg16 r) const {return regs[static_cast<int>(r)];}
     uint16_t &reg(Reg16 r) {return *reinterpret_cast<uint16_t *>(regs + static_cast<int>(r));}
+    uint32_t reg(Reg32 r) const {return regs[static_cast<int>(r)];}
+    uint32_t &reg(Reg32 r) {return regs[static_cast<int>(r)];}
 
     uint16_t getFlags() const {return flags;}
     void setFlags(uint16_t flags) {this->flags = flags;}
@@ -95,8 +123,11 @@ private:
     int cyclesToRun = 0;
 
     // registers
-    uint32_t regs[13]; // segment regs are only 16-bit...
+    uint32_t regs[18]; // segment regs are only 16-bit...
     uint32_t flags;
+
+    uint32_t gdtBase, ldtBase, idtBase;
+    uint16_t gdtLimit, ldtLimit, idtLimit;
 
     // enabling interrupts happens one opcode later
     bool delayInterrupt = false;
