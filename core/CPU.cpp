@@ -1695,7 +1695,12 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             int cycles = 2;
             // the only time we don't want the segment added...
-            reg(static_cast<Reg16>(r)) = std::get<0>(getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr));
+            auto offset = std::get<0>(getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr));
+
+            if(operandSize32)
+                reg(static_cast<Reg32>(r)) = offset;
+            else
+                reg(static_cast<Reg16>(r)) = offset;
 
             reg(Reg32::EIP)++;
             cyclesExecuted(cycles);
