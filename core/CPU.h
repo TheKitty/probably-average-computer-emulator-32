@@ -107,6 +107,7 @@ private:
     void setSegmentReg(Reg16 r, uint16_t value);
 
     bool isProtectedMode() {return reg(Reg32::CR0) & 1;}
+    bool isOperandSize32(bool override);
 
     // R/M helpers
 

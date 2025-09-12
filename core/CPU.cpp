@@ -475,12 +475,15 @@ void RAM_FUNC(CPU::executeInstruction)()
     auto opcode = sys.readMem(addr);
     bool rep = false, repZ = true;
     segmentOverride = Reg16::AX; // not a segment reg, also == 0
+    bool operandSizeOverride = false;
 
     // prefixes
     while(true)
     {
         if((opcode & 0xE7) == 0x26) // segment override (26 = ES, 2E = CS, 36 = SS, 3E = DS)
             segmentOverride = static_cast<Reg16>(static_cast<int>(Reg16::ES) + ((opcode >> 3) & 3)); // the middle two bits
+        else if(opcode == 0x66) // operand size override
+            operandSizeOverride = true;
         else if(opcode == 0xF2) // REPNE
         {
             rep = true;
@@ -494,6 +497,8 @@ void RAM_FUNC(CPU::executeInstruction)()
         opcode = sys.readMem(++addr);
         reg(Reg16::IP)++;
     }
+
+    bool operandSize32 = isOperandSize32(operandSizeOverride);
 
     auto getDispLen = [this](uint8_t modRM)
     {
