@@ -523,7 +523,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     return ret + 4;
 
                 // disp instead of base
-                if(rm == 4 && sys.readMem(nextAddr) & 7 == 6)
+                if(rm == 4 && (sys.readMem(nextAddr) & 7) == 6)
                     ret += 4;
             
                 return ret;
