@@ -2974,69 +2974,133 @@ void RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t segment, uint32_t data)
 
 // rw is true if this is a write that was read in the same op (to avoid counting disp twice)
 // TODO: should addr cycles be counted twice?
-std::tuple<uint16_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int rm, int &cycles, bool rw, uint32_t addr)
+std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int rm, int &cycles, bool rw, uint32_t addr)
 {
-    uint16_t memAddr = 0;
-    Reg16 segBase = Reg16::DS;
-    switch(rm)
-    {
-        case 0: // BX + SI
-            memAddr = reg(Reg16::BX) + reg(Reg16::SI);
-            cycles += 7;
-            break;
-        case 1: // BX + DI
-            memAddr = reg(Reg16::BX) + reg(Reg16::DI);
-            cycles += 8;
-            break;
-        case 2: // BP + SI
-            memAddr = reg(Reg16::BP) + reg(Reg16::SI);
-            segBase = Reg16::SS;
-            cycles += 8;
-            break;
-        case 3: // BP + DI
-            memAddr = reg(Reg16::BP) + reg(Reg16::DI);
-            segBase = Reg16::SS;
-            cycles += 7;
-            break;
-        case 4:
-            memAddr = reg(Reg16::SI);
-            cycles += 5;
-            break;
-        case 5:
-            memAddr = reg(Reg16::DI);
-            cycles += 5;
-            break;
-        case 6:
-            if(mod == 0) // direct
-            {
-                memAddr = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8;
+    bool addressSize32 = isOperandSize32(false); // FIXME: override (and maybe cache)
 
-                if(!rw)
-                    reg(Reg32::EIP) += 2;
-                cycles += 6;
-            }
-            else
+    uint32_t memAddr = 0;
+    Reg16 segBase = Reg16::DS;
+
+    if(addressSize32) // r/m meaning is entirely different in 32bit mode
+    {
+        switch(rm)
+        {
+            case 0: // EAX
+            case 1: // ECX 
+            case 2: // EDX
+            case 3: // EBX
+            case 6: // ESI
+            case 7: // EDI
+                memAddr = reg(static_cast<Reg32>(rm));
+                break;
+
+            case 4: // SIB
             {
-                // default to stack segment
-                memAddr = reg(Reg16::BP);
-                segBase = Reg16::SS;
-                cycles += 5;
+                auto sib = sys.readMem(addr + 2);
+                if(!rw)
+                    reg(Reg32::EIP)++;
+
+                int scale = sib >> 6;
+                int index = (sib >> 3) & 7;
+                int base = sib & 7;
+
+                if(mod == 0 && base == 6)
+                {
+                    // disp32 instead of base
+                    memAddr = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8 | sys.readMem(addr + 4) << 16 | sys.readMem(addr + 5) << 24;
+
+                    if(!rw)
+                        reg(Reg32::EIP) += 4;
+                }
+                else
+                    memAddr = reg(static_cast<Reg32>(base));
+
+                if(index != 4) // SP means no index
+                    memAddr += reg(static_cast<Reg32>(index)) << scale;
+
+                break;
             }
-            break;
-        case 7:
-            memAddr = reg(Reg16::BX);
-            cycles += 5;
-            break;
+            case 5: // ~the same as 6 for 16-bit
+                if(mod == 0) // direct
+                {
+                    memAddr = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8 | sys.readMem(addr + 4) << 16 | sys.readMem(addr + 5) << 24;
+
+                    if(!rw)
+                        reg(Reg32::EIP) += 4;
+                    cycles += 6;
+                }
+                else
+                {
+                    // default to stack segment
+                    memAddr = reg(Reg32::EBP);
+                    segBase = Reg16::SS;
+                    cycles += 5;
+                }
+                break;
+        }
+    }
+    else
+    {
+        switch(rm)
+        {
+            case 0: // BX + SI
+                memAddr = reg(Reg16::BX) + reg(Reg16::SI);
+                cycles += 7;
+                break;
+            case 1: // BX + DI
+                memAddr = reg(Reg16::BX) + reg(Reg16::DI);
+                cycles += 8;
+                break;
+            case 2: // BP + SI
+                memAddr = reg(Reg16::BP) + reg(Reg16::SI);
+                segBase = Reg16::SS;
+                cycles += 8;
+                break;
+            case 3: // BP + DI
+                memAddr = reg(Reg16::BP) + reg(Reg16::DI);
+                segBase = Reg16::SS;
+                cycles += 7;
+                break;
+            case 4:
+                memAddr = reg(Reg16::SI);
+                cycles += 5;
+                break;
+            case 5:
+                memAddr = reg(Reg16::DI);
+                cycles += 5;
+                break;
+            case 6:
+                if(mod == 0) // direct
+                {
+                    memAddr = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8;
+
+                    if(!rw)
+                        reg(Reg32::EIP) += 2;
+                    cycles += 6;
+                }
+                else
+                {
+                    // default to stack segment
+                    memAddr = reg(Reg16::BP);
+                    segBase = Reg16::SS;
+                    cycles += 5;
+                }
+                break;
+            case 7:
+                memAddr = reg(Reg16::BX);
+                cycles += 5;
+                break;
+        }
     }
 
     // add disp
     if(mod == 1)
     {
-        uint16_t disp = sys.readMem(addr + 2);
+        uint32_t disp = sys.readMem(addr + 2);
 
         // sign extend
         if(disp & 0x80)
-            disp |= 0xFF00;
+            disp |= 0xFFFFFF00;
 
         if(!rw)
             reg(Reg32::EIP)++;
@@ -3046,12 +3110,23 @@ std::tuple<uint16_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
     }
     else if(mod == 2)
     {
-        uint16_t disp = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8;
+        if(addressSize32) // 32bit
+        {
+            uint32_t disp = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8 | sys.readMem(addr + 4) << 16 | sys.readMem(addr + 5) << 24;
+            if(!rw)
+                reg(Reg32::EIP) += 4;
 
-        if(!rw)
-            reg(Reg32::EIP) += 2;
+            memAddr += disp;
+        }
+        else //16bit
+        {
+            uint16_t disp = sys.readMem(addr + 2) | sys.readMem(addr + 3) << 8;
 
-        memAddr += disp;
+            if(!rw)
+                reg(Reg32::EIP) += 2;
+
+            memAddr += disp;
+        }
         cycles += 4;
     }
 
@@ -3062,7 +3137,10 @@ std::tuple<uint16_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
         cycles += 2;
     }
 
-    return {memAddr, reg(segBase) << 4};
+    if(!addressSize32)
+        memAddr &= 0xFFFF;
+
+    return {memAddr, getSegmentOffset(segBase)};
 }
 
 void CPU::setSegmentReg(Reg16 r, uint16_t value)
@@ -3113,6 +3191,7 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
     }
 }
 
+// also address size, but with a different override prefix
 bool CPU::isOperandSize32(bool override)
 {
     if(isProtectedMode())
