@@ -2967,7 +2967,35 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
 
     if(isProtectedMode())
     {
-        // from table
+        //int privLevel = value & 3;
+        //bool local = value & 4;
+
+        // FIXME: limit
+        // FIXME: privilege
+        // FIXME: local table
+        auto addr = gdtBase + (value >> 3) * 8;
+
+        auto &desc = getCachedSegmentDescriptor(r);
+        desc.base = sys.readMem(addr + 2)
+                  | sys.readMem(addr + 3) <<  8
+                  | sys.readMem(addr + 4) << 16
+                  | sys.readMem(addr + 7) << 24;
+
+        desc.limit = sys.readMem(addr + 0)
+                   | sys.readMem(addr + 1) << 8
+                   | (sys.readMem(addr + 6) & 0xF) << 16;
+
+        desc.flags = sys.readMem(addr + 5) << 16 | (sys.readMem(addr + 6) & 0xF0) << 8;
+
+        // 4k granularity
+        if(desc.flags & (1 << 15))
+        {
+            desc.limit <<= 12;
+            desc.limit |= 0xFFF;
+        }
+
+        char segLetter[]{'E', 'C', 'S', 'D', 'F', 'G'};
+        printf("load %cS base %08X limit %08X flags %08X\n", segLetter[int(r) - int(Reg16::ES)], desc.base, desc.limit, desc.flags);
     }
     else
     {
