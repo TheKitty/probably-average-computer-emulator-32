@@ -1822,7 +1822,7 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            memAddr += reg(segment) << 4;
+            memAddr += getSegmentOffset(segment);
 
             reg(Reg8::AL) = sys.readMem(memAddr);
 
@@ -1835,7 +1835,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            reg(Reg16::AX) = readMem16(memAddr, reg(segment) << 4);
+            reg(Reg16::AX) = readMem16(memAddr, getSegmentOffset(segment));
 
             reg(Reg32::EIP) += 2;
             cyclesExecuted(10 + 4);
@@ -1845,7 +1845,7 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            memAddr += reg(segment) << 4;
+            memAddr += getSegmentOffset(segment);
 
             sys.writeMem(memAddr, reg(Reg8::AL));
 
@@ -1858,7 +1858,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            writeMem16(memAddr, reg(segment) << 4, reg(Reg16::AX));
+            writeMem16(memAddr, getSegmentOffset(segment), reg(Reg16::AX));
 
             reg(Reg32::EIP) += 2;
             cyclesExecuted(10 + 4);
@@ -1876,8 +1876,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    auto srcAddr = (reg(segment) << 4) + reg(Reg16::SI);
-                    auto destAddr = (getSegmentOffset(Reg16::ES)) + reg(Reg16::DI);
+                    auto srcAddr = getSegmentOffset(segment) + reg(Reg16::SI);
+                    auto destAddr = getSegmentOffset(Reg16::ES) + reg(Reg16::DI);
 
                     sys.writeMem(destAddr, sys.readMem(srcAddr));
 
@@ -1898,8 +1898,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto srcAddr = (reg(segment) << 4) + reg(Reg16::SI);
-                auto destAddr = (getSegmentOffset(Reg16::ES)) + reg(Reg16::DI);
+                auto srcAddr = getSegmentOffset(segment) + reg(Reg16::SI);
+                auto destAddr = getSegmentOffset(Reg16::ES) + reg(Reg16::DI);
 
                 sys.writeMem(destAddr, sys.readMem(srcAddr));
 
@@ -1929,7 +1929,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    auto v = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                    auto v = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
                     writeMem16(reg(Reg16::DI), getSegmentOffset(Reg16::ES), v);
 
                     if(flags & Flag_D)
@@ -1949,7 +1949,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto v = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                auto v = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
                 writeMem16(reg(Reg16::DI), getSegmentOffset(Reg16::ES), v);
 
                 if(flags & Flag_D)
@@ -1978,8 +1978,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    auto srcAddr = (reg(segment) << 4) + reg(Reg16::SI);
-                    auto destAddr = (getSegmentOffset(Reg16::ES)) + reg(Reg16::DI);
+                    auto srcAddr = getSegmentOffset(segment) + reg(Reg16::SI);
+                    auto destAddr = getSegmentOffset(Reg16::ES) + reg(Reg16::DI);
 
                     doSub(sys.readMem(srcAddr), sys.readMem(destAddr), flags);
 
@@ -2003,8 +2003,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto srcAddr = (reg(segment) << 4) + reg(Reg16::SI);
-                auto destAddr = (getSegmentOffset(Reg16::ES)) + reg(Reg16::DI);
+                auto srcAddr = getSegmentOffset(segment) + reg(Reg16::SI);
+                auto destAddr = getSegmentOffset(Reg16::ES) + reg(Reg16::DI);
 
                 doSub(sys.readMem(srcAddr), sys.readMem(destAddr), flags);
 
@@ -2034,7 +2034,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    auto src = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                    auto src = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
                     auto dest = readMem16(reg(Reg16::DI), getSegmentOffset(Reg16::ES));
 
                     doSub(src, dest, flags);
@@ -2059,7 +2059,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto src = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                auto src = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
                 auto dest = readMem16(reg(Reg16::DI), getSegmentOffset(Reg16::ES));
 
                 doSub(src, dest, flags);
@@ -2182,7 +2182,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    auto addr = (reg(segment) << 4) + reg(Reg16::SI);
+                    auto addr = getSegmentOffset(segment) + reg(Reg16::SI);
                     reg(Reg8::AL) = sys.readMem(addr);
 
                     if(flags & Flag_D)
@@ -2196,7 +2196,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto addr = (reg(segment) << 4) + reg(Reg16::SI);
+                auto addr = getSegmentOffset(segment) + reg(Reg16::SI);
                 reg(Reg8::AL) = sys.readMem(addr);
 
                 if(flags & Flag_D)
@@ -2219,7 +2219,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
 
-                    reg(Reg16::AX) = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                    reg(Reg16::AX) = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
 
                     if(flags & Flag_D)
                         reg(Reg16::SI) -= 2;
@@ -2232,7 +2232,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                reg(Reg16::AX) = readMem16(reg(Reg16::SI), reg(segment) << 4);
+                reg(Reg16::AX) = readMem16(reg(Reg16::SI), getSegmentOffset(segment));
 
                 if(flags & Flag_D)
                     reg(Reg16::SI) -= 2;
@@ -2662,7 +2662,7 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto addr = (reg(Reg16::BX) + reg(Reg8::AL)) & 0xFFFF;
             if(segmentOverride != Reg16::AX)
-                addr += reg(segmentOverride) << 4;
+                addr += getSegmentOffset(segmentOverride);
             else
                 addr += getSegmentOffset(Reg16::DS);
 
