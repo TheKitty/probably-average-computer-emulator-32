@@ -1050,11 +1050,21 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto r = (modRM >> 3) & 0x7;
 
             int cycles = (modRM >> 6) == 3 ? 3 : 9 + 4;
-    
-            auto src = reg(static_cast<Reg16>(r));
-            auto dest = readRM16(modRM, cycles, addr);
 
-            doSub(dest, src, flags);
+            if(operandSize32)
+            {
+                auto src = reg(static_cast<Reg32>(r));
+                auto dest = readRM32(modRM, cycles, addr);
+
+                doSub(dest, src, flags);
+            }
+            else
+            {    
+                auto src = reg(static_cast<Reg16>(r));
+                auto dest = readRM16(modRM, cycles, addr);
+
+                doSub(dest, src, flags);
+            }
 
             reg(Reg32::EIP)++;
             cyclesExecuted(cycles);
@@ -1082,11 +1092,21 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto r = (modRM >> 3) & 0x7;
 
             int cycles = (modRM >> 6) == 3 ? 3 : 9 + 4;
-            uint16_t src = readRM16(modRM, cycles, addr);
 
-            auto dstReg = static_cast<Reg16>(r);
+            if(operandSize32)
+            {
+                auto src = readRM32(modRM, cycles, addr);
+                auto dstReg = static_cast<Reg32>(r);
 
-            doSub(reg(dstReg), src, flags);
+                doSub(reg(dstReg), src, flags);
+            }
+            else
+            {
+                uint16_t src = readRM16(modRM, cycles, addr);
+                auto dstReg = static_cast<Reg16>(r);
+
+                doSub(reg(dstReg), src, flags);
+            }
 
             reg(Reg32::EIP)++;
             cyclesExecuted(cycles);
@@ -1104,11 +1124,22 @@ void RAM_FUNC(CPU::executeInstruction)()
         }
         case 0x3D: // CMP AX imm
         {
-            uint16_t imm = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+            if(operandSize32)
+            {
+                uint32_t imm = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8 | sys.readMem(addr + 3) << 16 | sys.readMem(addr + 4) << 24;
 
-            doSub(reg(Reg16::AX), imm, flags);
+                doSub(reg(Reg32::EAX), imm, flags);
 
-            reg(Reg32::EIP) += 2;
+                reg(Reg32::EIP) += 2;
+            }
+            else
+            {
+                uint16_t imm = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+
+                doSub(reg(Reg16::AX), imm, flags);
+
+                reg(Reg32::EIP) += 2;
+            }
             cyclesExecuted(4);
             break;
         }
