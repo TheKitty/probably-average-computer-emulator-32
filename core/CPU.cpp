@@ -499,14 +499,41 @@ void RAM_FUNC(CPU::executeInstruction)()
     }
 
     bool operandSize32 = isOperandSize32(operandSizeOverride);
+    bool addressSize32 = isOperandSize32(false); // FIXME: override (and maybe cache)
 
-    auto getDispLen = [this](uint8_t modRM)
+    // TODO: make this return the address?
+    auto getDispLen = [this, &addressSize32](uint8_t modRM, uint32_t nextAddr)
     {
         auto mod = modRM >> 6;
         auto rm = modRM & 7;
 
         if(mod == 3)
             return 0;
+
+        if(addressSize32)
+        {
+            int ret = 0;
+
+            if(rm == 4) // SIB
+                ret++;
+
+            if(mod == 0)
+            {
+                if(rm == 5)
+                    return ret + 4;
+
+                // disp instead of base
+                if(rm == 4 && sys.readMem(nextAddr) & 7 == 6)
+                    ret += 4;
+            
+                return ret;
+            }
+
+            if(mod == 1)
+                return ret + 1;
+            if(mod == 2)
+                return ret + 4;
+        }
 
         if(mod == 0)
             return rm == 6 ? 2 : 0;
@@ -1150,7 +1177,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             int cycles = (modRM >> 6) == 3 ? 4 : (exOp == 7/*CMP*/ ? 10 : 17); //?
             auto dest = readRM8(modRM, cycles, addr);
-            int immOff = 2 + getDispLen(modRM);
+            int immOff = 2 + getDispLen(modRM, addr + 2);
             auto imm = sys.readMem(addr + immOff);
 
             switch(exOp)
@@ -1193,7 +1220,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             int cycles = (modRM >> 6) == 3 ? 4 : (exOp == 7/*CMP*/ ? 10 : 17) + 4; //?
             auto dest = readRM16(modRM, cycles, addr);
 
-            int immOff = 2 + getDispLen(modRM);
+            int immOff = 2 + getDispLen(modRM, addr + 2);
             uint16_t imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8;
 
             switch(exOp)
@@ -1237,7 +1264,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             int cycles = (modRM >> 6) == 3 ? 4 : (exOp == 7/*CMP*/ ? 10 : 17) + 4; //?
             auto dest = readRM16(modRM, cycles, addr);
 
-            int immOff = 2 + getDispLen(modRM);
+            int immOff = 2 + getDispLen(modRM, addr + 2);
             uint16_t imm = sys.readMem(addr + immOff);
 
             // sign extend
@@ -2189,7 +2216,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = sys.readMem(addr + 1);
             assert(((modRM >> 3) & 0x7) == 0);
 
-            int immOff = 2 + getDispLen(modRM);
+            int immOff = 2 + getDispLen(modRM, addr + 2);
             auto imm = sys.readMem(addr + immOff);
 
             int cycles = (modRM >> 6) == 3 ? 4 : 10;
@@ -2205,7 +2232,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = sys.readMem(addr + 1);
             assert(((modRM >> 3) & 0x7) == 0);
 
-            int immOff = 2 + getDispLen(modRM);
+            int immOff = 2 + getDispLen(modRM, addr + 2);
             auto imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8;
 
             int cycles = (modRM >> 6) == 3 ? 4 : 10 + 4;
@@ -2635,7 +2662,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 case 0: // TEST imm
                 {
-                    auto imm = sys.readMem(addr + 2 + getDispLen(modRM));
+                    auto imm = sys.readMem(addr + 2 + getDispLen(modRM, addr + 2));
 
                     doAnd(v, imm, flags);
 
@@ -2752,7 +2779,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 case 0: // TEST imm
                 {
-                    int immOff = 2 + getDispLen(modRM);
+                    int immOff = 2 + getDispLen(modRM, addr + 2);
                     uint16_t imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8;
 
                     doAnd(v, imm, flags);
