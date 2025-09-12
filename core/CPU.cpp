@@ -815,8 +815,33 @@ void RAM_FUNC(CPU::executeInstruction)()
                     }
                     break;
                 }
+                case 0x90: // SETO
+                case 0x91: // SETNO
+                case 0x92: // SETB/SETNAE
+                case 0x93: // SETAE/SETNB
+                case 0x94: // SETE/SETZ
+                case 0x95: // SETNE/SETNZ
+                case 0x96: // SETBE/SETNA
+                case 0x97: // SETNBE/SETA
+                case 0x98: // SETS
+                case 0x99: // SETNS
+                case 0x9A: // SETP/SETPE
+                case 0x9B: // SETNP/SETPO
+                case 0x9C: // SETL/JNGE
+                case 0x9D: // SETNL/SETGE
+                case 0x9E: // SETLE/SETNG
+                case 0x9F: // SETNLE/SETG
+                {
+                    int cond = opcode2 & 0xF;
+                    auto modRM = sys.readMem(addr + 2);
+                    int cycles;
+                    writeRM8(modRM, getCondValue(cond) ? 1 : 0, cycles, addr + 1);
 
-                case 0xB6: // MOVZX
+                    reg(Reg32::EIP) += 2;
+                    break;
+                }
+
+                case 0xB6:
                 {
                     auto modRM = sys.readMem(addr + 2);
                     auto r = (modRM >> 3) & 0x7;
