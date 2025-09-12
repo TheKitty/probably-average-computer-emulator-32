@@ -582,19 +582,28 @@ void RAM_FUNC(CPU::executeInstruction)()
             doALU8<doAdd, false, 3, 16>(addr);
             break;
         case 0x01: // ADD r/m16 r16
-            doALU16<doAdd, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doAdd, false, 3, 16>(addr);
+            else
+                doALU16<doAdd, false, 3, 16>(addr);
             break;
         case 0x02: // ADD r8 r/m8
             doALU8<doAdd, true, 3, 9>(addr);
             break;
         case 0x03: // ADD r16 r/m16
-            doALU16<doAdd, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doAdd, true, 3, 9>(addr);
+            else
+                doALU16<doAdd, true, 3, 9>(addr);
             break;
         case 0x04: // ADD AL imm8
             doALU8AImm<doAdd>(addr);
             break;
         case 0x05: // ADD AX imm16
-            doALU16AImm<doAdd>(addr);
+            if(operandSize32)
+                doALU32AImm<doAdd>(addr);
+            else
+                doALU16AImm<doAdd>(addr);
             break;
 
         case 0x06: // PUSH seg
@@ -627,19 +636,28 @@ void RAM_FUNC(CPU::executeInstruction)()
             doALU8<doOr, false, 3, 16>(addr);
             break;
         case 0x09: // OR r/m16 r16
-            doALU16<doOr, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doOr, false, 3, 16>(addr);
+            else
+                doALU16<doOr, false, 3, 16>(addr);
             break;
         case 0x0A: // OR r8 r/m8
             doALU8<doOr, true, 3, 9>(addr);
             break;
         case 0x0B: // OR r16 r/m16
-            doALU16<doOr, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doOr, true, 3, 9>(addr);
+            else
+                doALU16<doOr, true, 3, 9>(addr);
             break;
         case 0x0C: // OR AL imm8
             doALU8AImm<doOr>(addr);
             break;
         case 0x0D: // OR AX imm16
-            doALU16AImm<doOr>(addr);
+            if(operandSize32)
+                doALU32AImm<doOr>(addr);
+            else
+                doALU16AImm<doOr>(addr);
             break;
 
         case 0x0F:
@@ -807,57 +825,84 @@ void RAM_FUNC(CPU::executeInstruction)()
             doALU8<doAddWithCarry, false, 3, 16>(addr);
             break;
         case 0x11: // ADC r/m16 r16
-            doALU16<doAddWithCarry, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doAddWithCarry, false, 3, 16>(addr);
+            else
+                doALU16<doAddWithCarry, false, 3, 16>(addr);
             break;
         case 0x12: // ADC r8 r/m8
             doALU8<doAddWithCarry, true, 3, 9>(addr);
             break;
         case 0x13: // ADC r16 r/m16
-            doALU16<doAddWithCarry, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doAddWithCarry, true, 3, 9>(addr);
+            else
+                doALU16<doAddWithCarry, true, 3, 9>(addr);
             break;
         case 0x14: // ADC AL imm8
             doALU8AImm<doAddWithCarry>(addr);
             break;
         case 0x15: // ADC AX imm16
-            doALU16AImm<doAddWithCarry>(addr);
+            if(operandSize32)
+                doALU32AImm<doAddWithCarry>(addr);
+            else
+                doALU16AImm<doAddWithCarry>(addr);
             break;
 
         case 0x18: // SBB r/m8 r8
             doALU8<doSubWithBorrow, false, 3, 16>(addr);
             break;
         case 0x19: // SBB r/m16 r16
-            doALU16<doSubWithBorrow, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doSubWithBorrow, false, 3, 16>(addr);
+            else
+                doALU16<doSubWithBorrow, false, 3, 16>(addr);
             break;
         case 0x1A: // SBB r8 r/m8
             doALU8<doSubWithBorrow, true, 3, 9>(addr);
             break;
         case 0x1B: // SBB r16 r/m16
-            doALU16<doSubWithBorrow, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doSubWithBorrow, true, 3, 9>(addr);
+            else
+                doALU16<doSubWithBorrow, true, 3, 9>(addr);
             break;
         case 0x1C: // SBB AL imm8
             doALU8AImm<doSubWithBorrow>(addr);
             break;
         case 0x1D: // SBB AX imm16
-            doALU16AImm<doSubWithBorrow>(addr);
+            if(operandSize32)
+                doALU32AImm<doSubWithBorrow>(addr);
+            else
+                doALU16AImm<doSubWithBorrow>(addr);
             break;
     
         case 0x20: // AND r/m8 r8
             doALU8<doAnd, false, 3, 16>(addr);
             break;
         case 0x21: // AND r/m16 r16
-            doALU16<doAnd, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doAnd, false, 3, 16>(addr);
+            else
+                doALU16<doAnd, false, 3, 16>(addr);
             break;
         case 0x22: // AND r8 r/m8
             doALU8<doAnd, true, 3, 9>(addr);
             break;
         case 0x23: // AND r16 r/m16
-            doALU16<doAnd, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doAnd, true, 3, 9>(addr);
+            else
+                doALU16<doAnd, true, 3, 9>(addr);
             break;
         case 0x24: // AND AL imm8
             doALU8AImm<doAnd>(addr);
             break;
         case 0x25: // AND AX imm16
-            doALU16AImm<doAnd>(addr);
+            if(operandSize32)
+                doALU32AImm<doAnd>(addr);
+            else
+                doALU16AImm<doAnd>(addr);
             break;
 
         case 0x27: // DAA
@@ -893,38 +938,56 @@ void RAM_FUNC(CPU::executeInstruction)()
             doALU8<doSub, false, 3, 16>(addr);
             break;
         case 0x29: // SUB r/m16 r16
-            doALU16<doSub, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doSub, false, 3, 16>(addr);
+            else
+                doALU16<doSub, false, 3, 16>(addr);
             break;
         case 0x2A: // SUB r8 r/m8
             doALU8<doSub, true, 3, 9>(addr);
             break;
         case 0x2B: // SUB r16 r/m16
-            doALU16<doSub, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doSub, true, 3, 9>(addr);
+            else
+                doALU16<doSub, true, 3, 9>(addr);
             break;
         case 0x2C: // SUB AL imm8
             doALU8AImm<doSub>(addr);
             break;
         case 0x2D: // SUB AX imm16
-            doALU16AImm<doSub>(addr);
+            if(operandSize32)
+                doALU32AImm<doSub>(addr);
+            else
+                doALU16AImm<doSub>(addr);
             break;
 
         case 0x30: // XOR r/m8 r8
             doALU8<doXor, false, 3, 16>(addr);
             break;
         case 0x31: // XOR r/m16 r16
-            doALU16<doXor, false, 3, 16>(addr);
+            if(operandSize32)
+                doALU32<doXor, false, 3, 16>(addr);
+            else
+                doALU16<doXor, false, 3, 16>(addr);
             break;
         case 0x32: // XOR r8 r/m8
             doALU8<doXor, true, 3, 9>(addr);
             break;
         case 0x33: // XOR r16 r/m16
-            doALU16<doXor, true, 3, 9>(addr);
+            if(operandSize32)
+                doALU32<doXor, true, 3, 9>(addr);
+            else
+                doALU16<doXor, true, 3, 9>(addr);
             break;
         case 0x34: // XOR AL imm8
             doALU8AImm<doXor>(addr);
             break;
         case 0x35: // XOR AX imm16
-            doALU16AImm<doXor>(addr);
+            if(operandSize32)
+                doALU32AImm<doXor>(addr);
+            else
+                doALU16AImm<doXor>(addr);
             break;
 
         case 0x38: // CMP r/m8 r8
