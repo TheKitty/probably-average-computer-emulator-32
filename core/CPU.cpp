@@ -2981,6 +2981,23 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
     }
 }
 
+bool CPU::isOperandSize32(bool override)
+{
+    if(isProtectedMode())
+    {
+        // D bit in CS descriptor
+        bool ret = getCachedSegmentDescriptor(Reg16::CS).flags & (1 << 14);
+
+        // override inverts
+        if(override)
+            ret = !ret;
+
+        return ret;
+    }
+
+    return override;
+}
+
 uint8_t RAM_FUNC(CPU::readRM8)(uint8_t modRM, int &cycles, uint32_t addr)
 {
     auto mod = modRM >> 6;
