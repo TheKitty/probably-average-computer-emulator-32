@@ -158,6 +158,7 @@ private:
     bool delayInterrupt = false;
 
     Reg16 segmentOverride;
+    bool addressSizeOverride;
 
     // RAM
     System &sys;

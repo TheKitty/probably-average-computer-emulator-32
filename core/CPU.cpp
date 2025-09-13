@@ -476,6 +476,7 @@ void RAM_FUNC(CPU::executeInstruction)()
     bool rep = false, repZ = true;
     segmentOverride = Reg16::AX; // not a segment reg, also == 0
     bool operandSizeOverride = false;
+    addressSizeOverride = false;
 
     // prefixes
     while(true)
@@ -484,6 +485,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             segmentOverride = static_cast<Reg16>(static_cast<int>(Reg16::ES) + ((opcode >> 3) & 3)); // the middle two bits
         else if(opcode == 0x66) // operand size override
             operandSizeOverride = true;
+        else if(opcode == 0x67)
+            addressSizeOverride = true;
         else if(opcode == 0xF2) // REPNE
         {
             rep = true;
@@ -499,7 +502,7 @@ void RAM_FUNC(CPU::executeInstruction)()
     }
 
     bool operandSize32 = isOperandSize32(operandSizeOverride);
-    bool addressSize32 = isOperandSize32(false); // FIXME: override (and maybe cache)
+    bool addressSize32 = isOperandSize32(addressSizeOverride);
 
     // TODO: make this return the address?
     auto getDispLen = [this, &addressSize32](uint8_t modRM, uint32_t nextAddr)
@@ -3464,7 +3467,7 @@ void RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t segment, uint32_t data)
 // TODO: should addr cycles be counted twice?
 std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int rm, int &cycles, bool rw, uint32_t addr)
 {
-    bool addressSize32 = isOperandSize32(false); // FIXME: override (and maybe cache)
+    bool addressSize32 = isOperandSize32(addressSizeOverride); // TODO: cache?
 
     uint32_t memAddr = 0;
     Reg16 segBase = Reg16::DS;
