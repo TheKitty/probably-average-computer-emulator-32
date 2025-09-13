@@ -1681,9 +1681,10 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             int cycles = (modRM >> 6) == 3 ? 2 : 8 + 4;
 
-            auto destReg = static_cast<Reg16>(r);
-
-            reg(destReg) = readRM16(modRM, cycles, addr);
+            if(operandSize32)
+                reg(static_cast<Reg32>(r)) = readRM32(modRM, cycles, addr);
+            else
+                reg(static_cast<Reg16>(r)) = readRM16(modRM, cycles, addr);
 
             reg(Reg32::EIP)++;
             cyclesExecuted(cycles);
@@ -1851,47 +1852,97 @@ void RAM_FUNC(CPU::executeInstruction)()
 
         case 0xA0: // MOV off16 -> AL
         {
-            auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+            uint32_t memAddr;
+
+            if(addressSize32)
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8 | sys.readMem(addr + 3) << 16 | sys.readMem(addr + 4) << 24;
+                reg(Reg32::EIP) += 4;
+            }
+            else
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+                reg(Reg32::EIP) += 2;
+            }
+
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
             memAddr += getSegmentOffset(segment);
 
             reg(Reg8::AL) = sys.readMem(memAddr);
 
-            reg(Reg32::EIP) += 2;
             cyclesExecuted(10);
             break;
         }
         case 0xA1: // MOV off16 -> AX
         {
-            auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            reg(Reg16::AX) = readMem16(memAddr, getSegmentOffset(segment));
+            uint32_t memAddr;
 
-            reg(Reg32::EIP) += 2;
+            if(addressSize32)
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8 | sys.readMem(addr + 3) << 16 | sys.readMem(addr + 4) << 24;
+                reg(Reg32::EIP) += 4;
+            }
+            else
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+                reg(Reg32::EIP) += 2;
+            }
+
+            if(operandSize32)
+                reg(Reg32::EAX) = readMem32(memAddr, getSegmentOffset(segment));
+            else
+                reg(Reg16::AX) = readMem16(memAddr, getSegmentOffset(segment));
+
             cyclesExecuted(10 + 4);
             break;
         }
         case 0xA2: // MOV AL -> off16
         {
-            auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
+            uint32_t memAddr;
+
+            if(addressSize32)
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8 | sys.readMem(addr + 3) << 16 | sys.readMem(addr + 4) << 24;
+                reg(Reg32::EIP) += 4;
+            }
+            else
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+                reg(Reg32::EIP) += 2;
+            }
+
+            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;            
             memAddr += getSegmentOffset(segment);
 
             sys.writeMem(memAddr, reg(Reg8::AL));
 
-            reg(Reg32::EIP) += 2;
             cyclesExecuted(10);
             break;
         }
         case 0xA3: // MOV AX -> off16
         {
-            auto memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            writeMem16(memAddr, getSegmentOffset(segment), reg(Reg16::AX));
+            uint32_t memAddr;
 
-            reg(Reg32::EIP) += 2;
+            if(addressSize32)
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8 | sys.readMem(addr + 3) << 16 | sys.readMem(addr + 4) << 24;
+                reg(Reg32::EIP) += 4;
+            }
+            else
+            {
+                memAddr = sys.readMem(addr + 1) | sys.readMem(addr + 2) << 8;
+                reg(Reg32::EIP) += 2;
+            }
+
+            if(operandSize32)
+                writeMem32(memAddr, getSegmentOffset(segment), reg(Reg32::EAX));
+            else
+                writeMem16(memAddr, getSegmentOffset(segment), reg(Reg16::AX));
+
             cyclesExecuted(10 + 4);
             break;
         }
@@ -2595,13 +2646,21 @@ void RAM_FUNC(CPU::executeInstruction)()
             assert(((modRM >> 3) & 0x7) == 0);
 
             int immOff = 2 + getDispLen(modRM, addr + 2);
-            auto imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8;
 
             int cycles = (modRM >> 6) == 3 ? 4 : 10 + 4;
+            if(operandSize32)
+            {
+                auto imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8 | sys.readMem(addr + immOff + 2) << 16 | sys.readMem(addr + immOff + 3) << 24;
+                writeRM32(modRM, imm, cycles, addr);
+                reg(Reg32::EIP) += 5;
+            }
+            else
+            {
+                auto imm = sys.readMem(addr + immOff) | sys.readMem(addr + immOff + 1) << 8;
+                writeRM16(modRM, imm, cycles, addr);
+                reg(Reg32::EIP) += 3;
+            }
 
-            writeRM16(modRM, imm, cycles, addr);
-
-            reg(Reg32::EIP) += 3;
             cyclesExecuted(cycles);
             break;
         }
