@@ -720,7 +720,19 @@ void RAM_FUNC(CPU::executeInstruction)()
 
                     switch(exOp)
                     {
-                        case 0x02: // LGDT
+                        case 0x0: // SGDT
+                        {
+                            int cycles;
+                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
+
+                            writeMem16(offset, segment, gdtLimit);
+                            writeMem32(offset + 2, segment, gdtBase);
+
+                            reg(Reg32::EIP) += 2;
+                            break;
+                        }
+
+                        case 0x2: // LGDT
                         {
                             int cycles;
                             auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
@@ -733,7 +745,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                             break;
                         }
 
-                        case 0x03: // LIDT
+                        case 0x3: // LIDT
                         {
                             int cycles;
                             auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
