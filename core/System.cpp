@@ -101,6 +101,9 @@ uint8_t Chipset::read(uint16_t addr)
             break;
         }
 
+        case 0x70: // CMOS index
+            return cmosIndex | (nmiEnabled ? 0 : 0x80);
+
         case 0x71: // CMOS data
         {
             printf("CMOS R %x\n", cmosIndex);
@@ -408,7 +411,7 @@ void Chipset::write(uint16_t addr, uint8_t data)
 
         case 0x70: // CMOS index
         {
-            //nmiEnabled = !(data & 0x80);
+            nmiEnabled = !(data & 0x80);
             cmosIndex = data & 0x7F;
             break;
         }

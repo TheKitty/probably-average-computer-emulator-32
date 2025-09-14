@@ -127,6 +127,8 @@ private:
 
     PIT pit;
 
+    bool nmiEnabled = false;
+
     uint8_t cmosIndex = 0; // 70
     uint8_t cmosRam[64];
 
