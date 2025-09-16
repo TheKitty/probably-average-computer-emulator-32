@@ -82,7 +82,6 @@ void VGACard::write(uint16_t addr, uint8_t data)
 
                 case 4: // memory mode
                     seqMemMode = data;
-                    setupMemory();
                     break;
             }
             break;
@@ -112,8 +111,11 @@ void VGACard::write(uint16_t addr, uint8_t data)
                 case 4: // read sel
                     gfxReadSel = data;
                     break;
-                
-                case 6:
+                case 5: // mode
+                    gfxMode = data;
+                    setupMemory();
+                    break;
+                case 6: // misc
                     gfxMisc = data;
                     setupMemory();
                     break;
@@ -130,7 +132,7 @@ void VGACard::setupMemory()
     bool enabled = miscOutput & (1 << 1);
     bool chain = gfxMisc & (1 << 1);
     int map = (gfxMisc >> 2) & 3;
-    bool oddEven = !(seqMemMode & (1 << 2));
+    bool oddEven = !(gfxMode & (1 << 5));
 
     static const int mapAddrs[]
     {
@@ -162,7 +164,7 @@ void VGACard::setupMemory()
 uint8_t VGACard::readMem(uint32_t addr)
 {
     bool chain = gfxMisc & (1 << 1);
-    //bool oddEven = !(seqMemMode & (1 << 2)); // does odd/even affect this?
+    // bool oddEven = !(gfxMode & (1 << 5)); // does odd/even affect this?
 
     int plane = gfxReadSel;
     int planeAddr = addr & 0xFFFF;
@@ -182,7 +184,7 @@ uint8_t VGACard::readMem(uint32_t addr)
 void VGACard::writeMem(uint32_t addr, uint8_t data)
 {
     bool chain = gfxMisc & (1 << 1);
-    bool oddEven = !(seqMemMode & (1 << 2));
+    bool oddEven = !(gfxMode & (1 << 5));
 
     int planeAddr = addr & 0xFFFF;
 

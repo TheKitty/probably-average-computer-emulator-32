@@ -46,6 +46,7 @@ private:
 
     // graphics controller
     uint8_t gfxReadSel = 0; // 4
+    uint8_t gfxMode = 0;    // 5
     uint8_t gfxMisc = 0;    // 6
 
     uint8_t miscOutput = 0;
