@@ -152,18 +152,8 @@ private:
 class System
 {
 public:
-    using MemRequestCallback = uint8_t *(*)(unsigned int block);
-
     using MemReadCallback = uint8_t(*)(uint32_t addr, void *);
     using MemWriteCallback = void(*)(uint32_t addr, uint8_t data, void *);
-
-    enum class GraphicsConfig
-    {
-        MDA = 0,
-        CGA_80Col,
-        CGA_40Col,
-        Other
-    };
 
     System();
     void reset();
@@ -177,18 +167,12 @@ public:
 
     void removeMemory(unsigned int block);
 
-    void setMemoryRequestCallback(MemRequestCallback cb);
-    MemRequestCallback getMemoryRequestCallback() const;
-
     void setMemAccessCallbacks(uint32_t baseAddr, uint32_t size, MemReadCallback readCb, MemWriteCallback writeCb, void *userData = nullptr);
 
     Chipset &getChipset() {return chipset;}
 
     void addIODevice(uint16_t mask, uint16_t value, uint8_t picMask, IODevice *dev);
     void removeIODevice(IODevice *dev);
-
-    void setGraphicsConfig(GraphicsConfig config);
-    GraphicsConfig getGraphicsConfig() const {return graphicsConfig;}
 
     uint8_t readMem(uint32_t addr);
     void writeMem(uint32_t addr, uint8_t data);
@@ -198,13 +182,10 @@ public:
     uint8_t readIOPort(uint16_t addr);
     void writeIOPort(uint16_t addr, uint8_t data);
 
-    void flagPICInterrupt(int index);
-
     void addCPUCycles(int cycles)
     {
         cycleCount += cycles * cpuClkDiv;
     }
-
 
     void updateForInterrupts(uint8_t updateMask, uint8_t picMask);
 
@@ -240,8 +221,6 @@ private:
 
     uint8_t *memMap[maxAddress / blockSize];
 
-    MemRequestCallback memReqCb = nullptr;
-
     uint32_t memAccessCbBase, memAccessCbEnd;
     MemReadCallback memReadCb = nullptr;
     MemWriteCallback memWriteCb = nullptr;
@@ -252,6 +231,4 @@ private:
     std::vector<IORange> ioDevices;
 
     uint32_t nextInterruptCycle = 0;
-
-    GraphicsConfig graphicsConfig = GraphicsConfig::CGA_80Col;
 };

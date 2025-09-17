@@ -971,16 +971,6 @@ void System::removeMemory(unsigned int block)
     memMap[block] = nullptr;
 }
 
-void System::setMemoryRequestCallback(MemRequestCallback cb)
-{
-    memReqCb = cb;
-}
-
-System::MemRequestCallback System::getMemoryRequestCallback() const
-{
-    return memReqCb;
-}
-
 // this is entirely because EGA/VGA memory mapping is mad
 void System::setMemAccessCallbacks(uint32_t baseAddr, uint32_t size, MemReadCallback readCb, MemWriteCallback writeCb, void *userData)
 {
@@ -1002,10 +992,6 @@ void System::removeIODevice(IODevice *dev)
     ioDevices.erase(it, ioDevices.end());
 }
 
-void System::setGraphicsConfig(GraphicsConfig config)
-{
-    graphicsConfig = config;
-}
 
 uint8_t RAM_FUNC(System::readMem)(uint32_t addr)
 {
@@ -1015,14 +1001,6 @@ uint8_t RAM_FUNC(System::readMem)(uint32_t addr)
     auto block = addr / blockSize;
     
     auto ptr = memMap[block];
-
-    // request more memory
-    if(!ptr && memReqCb)
-    {
-        ptr = memReqCb(block);
-        if(ptr)
-            ptr = memMap[block] = ptr - block * blockSize;
-    }
 
     if(ptr)
         return ptr[addr];
@@ -1041,14 +1019,6 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
     auto block = addr / blockSize;
 
     auto ptr = memMap[block];
-
-    // request more memory
-    if(!ptr && memReqCb)
-    {
-        ptr = memReqCb(block);
-        if(ptr)
-            ptr = memMap[block] = ptr - block * blockSize;
-    }
 
     if(ptr)
     {
