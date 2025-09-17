@@ -5,9 +5,10 @@
 
 #include <SDL.h>
 
+#include "QEMUConfig.h"
 #include "Scancode.h"
-
 #include "System.h"
+#include "VGACard.h"
 
 static bool quit = false;
 static bool turbo = false;
@@ -16,9 +17,13 @@ static SDL_AudioDeviceID audioDevice;
 
 static System sys;
 
+static QEMUConfig qemuCfg(sys);
+static VGACard vgaCard(sys);
+
 static uint8_t ram[8 * 1024 * 1024];
 
 static uint8_t biosROM[0x20000];
+static uint8_t vgaBIOS[0x10000];
 
 static ATScancode scancodeMap[SDL_NUM_SCANCODES]
 {
@@ -352,7 +357,9 @@ int main(int argc, char *argv[])
 {
     int screenWidth = 640;
     int screenHeight = 480;
-    int textureHeight = 200;
+    // mode might be 640x480 or 720x400
+    int textureWidth = 720;
+    int textureHeight = 480;
     int screenScale = 2;
 
     uint32_t timeToRun = 0;
@@ -416,6 +423,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // attempt to open VGA BIOS
+    biosFile.open(basePath + "vgabios.bin", std::ios::binary);
+    if(biosFile)
+    {
+        std::cout << "loading VGA BIOS\n";
+        biosFile.read(reinterpret_cast<char *>(vgaBIOS), sizeof(vgaBIOS));
+        qemuCfg.setVGABIOS(vgaBIOS);
+    }
 
     sys.reset();
 
@@ -434,7 +449,7 @@ int main(int argc, char *argv[])
     SDL_RenderSetLogicalSize(renderer, screenWidth, screenHeight);
     SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
 
-    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING, screenWidth, textureHeight);
+    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR888, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
 
     // audio
     SDL_AudioSpec spec{};
@@ -500,11 +515,20 @@ int main(int argc, char *argv[])
 
         lastTick = now;
 
-        // TODO: sync
-        //SDL_UpdateTexture(texture, nullptr, screenData, screenWidth * 4);
+        // this is a placeholder
+        auto [outputW, outputH] = vgaCard.getOutputResolution();
+
+        SDL_Surface *surface;
+        SDL_LockTextureToSurface(texture, nullptr, &surface);
+
+        for(int i = 0; i < outputH; i++)
+            vgaCard.drawScanline(i, reinterpret_cast<uint8_t *>(surface->pixels) + surface->pitch * i);
+
+        SDL_UnlockTexture(texture);
+
         SDL_RenderClear(renderer);
-        //SDL_Rect srcRect{0, 0, curScreenW, textureHeight};
-        //SDL_RenderCopy(renderer, texture, &srcRect, nullptr);
+        SDL_Rect srcRect{0, 0, outputW, outputH};
+        SDL_RenderCopy(renderer, texture, &srcRect, nullptr);
         SDL_RenderPresent(renderer);
     }
 
