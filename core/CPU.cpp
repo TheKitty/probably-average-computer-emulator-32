@@ -475,8 +475,8 @@ void RAM_FUNC(CPU::run)(int ms)
     {
         auto oldCycles = sys.getCycleCount();
 
-        //if(sys.getChipset().needDMAUpdate())
-        //    sys.getChipset().updateDMA();
+        if(chipset.needDMAUpdate())
+            chipset.updateDMA();
 
         if(flags & Flag_I)
         {
