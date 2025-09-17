@@ -1076,7 +1076,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     break;
                 }
 
-                case 0xBE: // MOVSX
+                case 0xBE: // MOVSX 8 -> 16/32
                 {
                     auto modRM = sys.readMem(addr + 2);
                     auto r = (modRM >> 3) & 0x7;
@@ -1087,6 +1087,26 @@ void RAM_FUNC(CPU::executeInstruction)()
                     // sign extend
                     if(v & 0x80)
                         v |= 0xFFFFFF00;
+
+                    if(operandSize32)
+                        reg(static_cast<Reg32>(r)) = v;
+                    else
+                        reg(static_cast<Reg16>(r)) = v;
+
+                    reg(Reg32::EIP) += 2;
+                    break;
+                }
+                case 0xBF: // MOVSX 16 -> 16/32
+                {
+                    auto modRM = sys.readMem(addr + 2);
+                    auto r = (modRM >> 3) & 0x7;
+
+                    int cycles;
+                    uint32_t v = readRM16(modRM, cycles, addr + 1);
+
+                    // sign extend
+                    if(v & 0x8000)
+                        v |= 0xFFFF0000;
 
                     if(operandSize32)
                         reg(static_cast<Reg32>(r)) = v;
