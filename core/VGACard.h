@@ -17,6 +17,7 @@ public:
 
 private:
     void setupMemory();
+    void updateOutputResolution();
 
     uint8_t readMem(uint32_t addr);
     void writeMem(uint32_t addr, uint8_t data);
@@ -40,9 +41,13 @@ private:
 
     bool attributeIsData;
 
+    // crtc
+    uint8_t crtcRegs[25];
+
     // sequencer
-    uint8_t seqMapMask = 0; // 2
-    uint8_t seqMemMode = 0; // 4
+    uint8_t seqClockMode = 0; // 1
+    uint8_t seqMapMask = 0;   // 2
+    uint8_t seqMemMode = 0;   // 4
 
     // graphics controller
     uint8_t gfxReadSel = 0; // 4
@@ -50,6 +55,8 @@ private:
     uint8_t gfxMisc = 0;    // 6
 
     uint8_t miscOutput = 0;
+
+    int outputW = 0, outputH = 0;
 
     uint8_t ram[256 * 1024];
 };

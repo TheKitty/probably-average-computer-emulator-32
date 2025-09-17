@@ -42,6 +42,10 @@ void VGACard::write(uint16_t addr, uint8_t data)
         case 0x3B5: // CRTC data
         case 0x3D5:
             printf("VGA W crtc %02X = %02X\n", crtcIndex, data);
+            crtcRegs[crtcIndex] = data;
+
+            if(crtcIndex == 0x1 /*horizontal end*/ || crtcIndex == 0x7 /*overflow bits*/ || crtcIndex == 0x12 /*vertical end*/)
+                updateOutputResolution();
             break;
 
         case 0x3C0: // attribute address/data
@@ -73,6 +77,10 @@ void VGACard::write(uint16_t addr, uint8_t data)
 
             switch(sequencerIndex)
             {
+                case 1: // clock mode
+                    seqClockMode = data;
+                    updateOutputResolution();
+                    break;
                 case 2: // map mask
                     seqMapMask = data;
                     break;
@@ -158,6 +166,17 @@ void VGACard::setupMemory()
         sys.addMemory(0xA0000, 0x20000, nullptr);
         sys.setMemAccessCallbacks(mapAddrs[map], mapSizes[map], &VGACard::readMem, &VGACard::writeMem, this);
     }
+}
+
+void VGACard::updateOutputResolution()
+{
+    int charWidth = seqClockMode & 1 ? 8 : 9;
+    int hDispChars = crtcRegs[1] + 1;
+    int vDisp = (crtcRegs[0x12] | (crtcRegs[0x7] & (1 << 1)) << 7 | (crtcRegs[0x7] & (1 << 6)) << 3) + 1;
+
+    outputW = charWidth * hDispChars;
+    outputH = vDisp;
+    printf("VGA res %ix%i\n", outputW, outputH);
 }
 
 uint8_t VGACard::readMem(uint32_t addr)
