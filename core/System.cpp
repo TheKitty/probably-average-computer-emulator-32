@@ -129,6 +129,9 @@ uint8_t Chipset::read(uint16_t addr)
             return cmosRam[cmosIndex];
         }
 
+        case 0x92: // system control port A
+            return systemControlA;
+
         default:
             printf("IO R %04X\n", addr);
     }
@@ -544,6 +547,10 @@ void Chipset::write(uint16_t addr, uint8_t data)
             break;
         case 0x83: // DMA channel 1 high addr
             dma.highAddr[1] = data;
+            break;
+
+        case 0x92: // system control port A
+            systemControlA = data;
             break;
 
         default:
