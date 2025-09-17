@@ -6,9 +6,6 @@ VGACard::VGACard(System &sys) : sys(sys)
 {
     // FIXME: some could also be at 3Bx
     sys.addIODevice(0x3E0, 0x3C0, 0, this); // 3Cx/3Dx
-
-    // make sure there isn't any memory mapped so our magic works
-    sys.addMemory(0xA0000, 0x20000, nullptr);
 }
 
 uint8_t VGACard::read(uint16_t addr)
@@ -132,7 +129,7 @@ void VGACard::setupMemory()
     bool enabled = miscOutput & (1 << 1);
     bool chain = gfxMisc & (1 << 1);
     int map = (gfxMisc >> 2) & 3;
-    bool oddEven = !(gfxMode & (1 << 5));
+    bool oddEven = gfxMode & (1 << 4);
 
     static const int mapAddrs[]
     {
@@ -157,6 +154,8 @@ void VGACard::setupMemory()
     else
     {
         printf("VGA RAM at %05X (%iK) chain %i odd/even %i\n", mapAddrs[map], mapSizes[map] / 1024, chain, oddEven);
+        // make sure there isn't any memory mapped so our magic works
+        sys.addMemory(0xA0000, 0x20000, nullptr);
         sys.setMemAccessCallbacks(mapAddrs[map], mapSizes[map], &VGACard::readMem, &VGACard::writeMem, this);
     }
 }
@@ -164,16 +163,20 @@ void VGACard::setupMemory()
 uint8_t VGACard::readMem(uint32_t addr)
 {
     bool chain = gfxMisc & (1 << 1);
-    // bool oddEven = !(gfxMode & (1 << 5)); // does odd/even affect this?
+    int map = (gfxMisc >> 2) & 3;
+    // bool oddEven = gfxMode & (1 << 4); // does odd/even affect this?
 
     int plane = gfxReadSel;
     int planeAddr = addr & 0xFFFF;
 
+    // mask out another bit for 32K mapping
+    if(gfxMisc & (1 << 3))
+        planeAddr &= ~0x8000;
+
     auto mappedAddr = planeAddr;
 
     // remap low bit for chaining
-
-    if(chain)
+    if(chain && map == 0)
         mappedAddr = (mappedAddr & ~1) | ((addr >> 16) & 1);
 
     //printf("VGA R %05X (%04X, sel %i)\n", addr, mappedAddr, gfxReadSel);
@@ -184,14 +187,19 @@ uint8_t VGACard::readMem(uint32_t addr)
 void VGACard::writeMem(uint32_t addr, uint8_t data)
 {
     bool chain = gfxMisc & (1 << 1);
-    bool oddEven = !(gfxMode & (1 << 5));
+    int map = (gfxMisc >> 2) & 3;
+    bool oddEven = gfxMode & (1 << 4);
 
     int planeAddr = addr & 0xFFFF;
+
+    // mask out another bit for 32K mapping
+    if(gfxMisc & (1 << 3))
+        planeAddr &= ~0x8000;
 
     auto mappedAddr = planeAddr;
 
     // remap low bit for chaining
-    if(chain)
+    if(chain && map == 0)
         mappedAddr = (mappedAddr & ~1) | ((addr >> 16) & 1);
 
     //if(data)
