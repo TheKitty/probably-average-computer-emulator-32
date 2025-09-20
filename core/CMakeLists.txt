@@ -1,6 +1,7 @@
 add_library(PACECore INTERFACE)
 
 target_sources(PACECore INTERFACE
+    ATAController.cpp
     CPU.cpp
     FloppyController.cpp
     QEMUConfig.cpp
