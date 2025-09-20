@@ -372,7 +372,7 @@ static void pollEvents()
                     auto code = scancodeMap[event.key.scancode];
 
                     if(code != ATScancode::Invalid)
-                        sys.getChipset().sendKey(code, true);
+                        sys.getChipset().sendKey(code, false);
                 }
                 break;
             }
