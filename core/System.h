@@ -180,7 +180,9 @@ public:
     const uint8_t *mapAddress(uint32_t addr) const;
 
     uint8_t readIOPort(uint16_t addr);
+    uint16_t readIOPort16(uint16_t addr);
     void writeIOPort(uint16_t addr, uint8_t data);
+    void writeIOPort16(uint16_t addr, uint16_t data);
 
     void addCPUCycles(int cycles)
     {
