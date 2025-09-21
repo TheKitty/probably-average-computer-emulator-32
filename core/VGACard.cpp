@@ -19,6 +19,10 @@ void VGACard::drawScanline(int line, uint8_t *output)
         output++;
     };
 
+    // check for scan double
+    if(crtcRegs[0x9] & 0x80)
+        line /= 2;
+
     auto plane0 = ram;
     auto plane1 = ram + 0x10000;
     auto plane2 = ram + 0x20000;
@@ -58,6 +62,50 @@ void VGACard::drawScanline(int line, uint8_t *output)
 
                 // double palette lookup
                 uint8_t pal64 = attribPalette[(fontVal ? fg : bg)];
+                auto pal256 = dacPalette + pal64 * 3;
+
+                outputPixel(pal256[0], pal256[1], pal256[2]);
+            }
+        }
+    }
+    else if(gfxMode & (1 << 6)) // 256 col
+    {
+        outputPixel(63, 0, 0);
+    }
+    else if(gfxMode & (1 << 4)) // interleaved
+    {
+        outputPixel(0, 63, 0);
+    }
+    else // 16 col?
+    {
+        int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
+        int offset = crtcRegs[0x13];
+        int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
+
+        uint8_t *ptr0;
+
+        ptr0 = plane0 + startAddr + offset * 2 * (line / charHeight);
+        // remap alternate lines for old modes
+        if((crtcRegs[0x17] & 1) == 0 && (line & 1))
+            ptr0 += 0x2000;
+
+        for(int i = 0; i < outputW / 8; i++)
+        {
+            uint8_t byte0 = (attribPlaneEnable & (1 << 0)) ? ptr0[0x00000] : 0;
+            uint8_t byte1 = (attribPlaneEnable & (1 << 1)) ? ptr0[0x10000] : 0;
+            uint8_t byte2 = (attribPlaneEnable & (1 << 2)) ? ptr0[0x20000] : 0;
+            uint8_t byte3 = (attribPlaneEnable & (1 << 3)) ? ptr0[0x30000] : 0;
+            ptr0++;
+
+            for(int j = 0; j < 8; j++)
+            {
+                int col = byte0 >> 7 | (byte1 >> 7) << 1 | (byte2 >> 7) << 2 | (byte3 >> 7) << 3;
+                byte0 <<= 1;
+                byte1 <<= 1;
+                byte2 <<= 1;
+                byte3 <<= 1;
+
+                uint8_t pal64 = attribPalette[col];
                 auto pal256 = dacPalette + pal64 * 3;
 
                 outputPixel(pal256[0], pal256[1], pal256[2]);
@@ -116,6 +164,8 @@ void VGACard::write(uint16_t addr, uint8_t data)
             {
                 if(attributeIndex < 0x10)
                     attribPalette[attributeIndex] = data;
+                else if(attributeIndex == 0x12)
+                    attribPlaneEnable = data;
                 else
                     printf("VGA W attrib %02X = %02X\n", attributeIndex, data);
             }
