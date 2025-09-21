@@ -440,20 +440,7 @@ void Chipset::write(uint16_t addr, uint8_t data)
             switch(data)
             {
                 case 0xED: // set LEDs
-                    if(devIndex == 0)
-                    {
-                        i8042DeviceCommand[0] = data;
-                        i8042Queue.push(0xFA); // ACK
-                    }
-                    break;
-
                 case 0xF0: // get/set code set
-                    if(devIndex == 0)
-                    {
-                        i8042DeviceCommand[0] = data;
-                        i8042Queue.push(0xFA); // ACK
-                    }
-                    break;
                 case 0xF3: // typematic
                     if(devIndex == 0)
                     {
