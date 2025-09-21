@@ -108,13 +108,18 @@ uint8_t Chipset::read(uint16_t addr)
             if(i8042Queue.empty())
                 return 0xFF;
 
-            uint8_t ret = i8042Queue.pop();
+            uint16_t ret = i8042Queue.pop();
 
             // re-flag interrupt if enabled and more data
-            if((i8042Configuration & (1 << 0)) && !i8042Queue.empty())
-                flagPICInterrupt(1);
-
-            return ret;
+            if(!i8042Queue.empty())
+            {
+                bool isSecondPort = ret >> 8;
+                if((i8042Configuration & (1 << 0)) && !isSecondPort)
+                    flagPICInterrupt(1);
+                else if((i8042Configuration & (1 << 1)) && isSecondPort)
+                    flagPICInterrupt(12);
+            }
+            return ret & 0xFF;
         }
 
         case 0x64: // 8042 "keyboard controller" status
@@ -370,6 +375,9 @@ void Chipset::write(uint16_t addr, uint8_t data)
 
         case 0x60: // 8042 data
         {
+            int devIndex = i8042WriteSecondPort ? 1 : 0;
+            i8042WriteSecondPort = false;
+
             if(i8042ControllerCommand)
             {
                 if(i8042ControllerCommand == 0x60) // write config byte
@@ -380,14 +388,15 @@ void Chipset::write(uint16_t addr, uint8_t data)
                 i8042ControllerCommand = 0;
                 break;
             }
-            else if(i8042DeviceCommand)
+            else if(devIndex == 0 && i8042DeviceCommand[0])
             {
-                if(i8042DeviceCommand == 0xED) // set LEDs
+                // assume first is keyboard
+                if(i8042DeviceCommand[0] == 0xED) // set LEDs
                 {
                     printf("8042 set keyboard leds %x\n", data);
                     i8042Queue.push(0xFA); // ACK
                 }
-                else if(i8042DeviceCommand == 0xF0) // get/set scancode set
+                else if(i8042DeviceCommand[0] == 0xF0) // get/set scancode set
                 {
                     switch(data)
                     {
@@ -404,39 +413,49 @@ void Chipset::write(uint16_t addr, uint8_t data)
                             break;
                     }
                 }
-                i8042DeviceCommand = 0;
+                i8042DeviceCommand[0] = 0;
+                break;
+            }
+            else if(devIndex == 1 && i8042DeviceCommand[1])
+            {
+                // assume second is mouse
+                i8042DeviceCommand[1] = 0;
                 break;
             }
 
             switch(data)
             {
                 case 0xED: // set LEDs
-                    i8042DeviceCommand = data;
-                    i8042Queue.push(0xFA); // ACK
+                    if(devIndex == 0)
+                    {
+                        i8042DeviceCommand[0] = data;
+                        i8042Queue.push(0xFA); // ACK
+                    }
                     break;
 
                 case 0xF0: // get/set code set
-                    i8042DeviceCommand = data;
-                    i8042Queue.push(0xFA); // ACK
+                    if(devIndex == 0)
+                    {
+                        i8042DeviceCommand[0] = data;
+                        i8042Queue.push(0xFA); // ACK
+                    }
                     break;
                 case 0xF4: // enable sending
-                    // TODO: 2nd port
-                    i8042DeviceSendEnabled |= (1 << 0);
-                    i8042Queue.push(0xFA); // ACK
+                    i8042DeviceSendEnabled |= (1 << devIndex);
+                    i8042Queue.push(0xFA | devIndex << 8); // ACK
                     break;
                 case 0xF5: // disable sending
-                     // TODO: 2nd port
-                    i8042DeviceSendEnabled &= ~(1 << 0);
-                    i8042Queue.push(0xFA); // ACK
+                    i8042DeviceSendEnabled &= ~(1 << devIndex);
+                    i8042Queue.push(0xFA | devIndex << 8); // ACK
                     break;
 
                 case 0xFF: // reset and test
-                    i8042Queue.push(0xFA); // ACK
-                    i8042Queue.push(0xAA); // passed
+                    i8042Queue.push(0xFA | devIndex << 8); // ACK
+                    i8042Queue.push(0xAA | devIndex << 8); // passed
                     break;
 
                 default:
-                    printf("8042 dat %02X\n", data);
+                    printf("8042 dat %02X (dev %i)\n", data, devIndex);
             }
             break;
         }
@@ -466,6 +485,9 @@ void Chipset::write(uint16_t addr, uint8_t data)
                     break;
                 case 0xAE: // enable first port
                     i8042PortEnabled |= (1 << 0);
+                    break;
+                case 0xD4: // next byte to second port
+                    i8042WriteSecondPort = true;
                     break;
                 default:
                     printf("8042 cmd %02X\n", data);
