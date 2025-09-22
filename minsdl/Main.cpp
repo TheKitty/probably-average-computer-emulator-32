@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "ATAController.h"
 #include "FloppyController.h"
 #include "QEMUConfig.h"
 #include "Scancode.h"
@@ -20,6 +21,7 @@ static SDL_AudioStream *audioStream;
 
 static System sys;
 
+static ATAController ataPrimary(sys);
 static FloppyController fdc(sys);
 static QEMUConfig qemuCfg(sys);
 static VGACard vgaCard(sys);
@@ -30,6 +32,7 @@ static uint8_t biosROM[0x20000];
 static uint8_t vgaBIOS[0x10000];
 
 static FileFloppyIO floppyIO;
+static FileATAIO ataPrimaryIO;
 
 static std::list<std::string> nextFloppyImage;
 
@@ -414,6 +417,7 @@ int main(int argc, char *argv[])
 
     std::string biosPath = "bios.bin";
     std::string floppyPaths[FileFloppyIO::maxDrives];
+    std::string ataPaths[FileATAIO::maxDrives];
 
     int i = 1;
 
@@ -442,6 +446,12 @@ int main(int argc, char *argv[])
         {
             // floppy image to load later
             nextFloppyImage.push_back(argv[++i]);
+        }
+        else if(arg.compare(0, 5, "--ata") == 0 && arg.length() == 6 && i + 1 < argc)
+        {
+            int n = arg[5] - '0';
+            if(n >= 0 && n < FileATAIO::maxDrives)
+                ataPaths[n] = argv[++i];
         }
         else
             break;
@@ -503,8 +513,16 @@ int main(int argc, char *argv[])
 
     for(auto &path : nextFloppyImage)
         path = basePath + path;
+
+    // ... and ATA disks
+    for(int i = 0; i < FileATAIO::maxDrives; i++)
+    {
+        if(!ataPaths[i].empty())
+            ataPrimaryIO.openDisk(i, basePath + ataPaths[i]);
+    }
     
     fdc.setIOInterface(&floppyIO);
+    ataPrimary.setIOInterface(&ataPrimaryIO);
 
     sys.reset();
 

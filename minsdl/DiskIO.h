@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+#include "ATAController.h"
 #include "FloppyController.h"
 
 class FileFloppyIO final : public FloppyDiskIO
@@ -21,3 +22,19 @@ private:
     int sectorsPerTrack[maxDrives];
 };
 
+class FileATAIO final : public ATADiskIO
+{
+public:
+    uint32_t getNumSectors(int drive) override;
+    bool read(int drive, uint8_t *buf, uint32_t lba) override;
+    bool write(int drive, const uint8_t *buf, uint32_t lba) override;
+
+    void openDisk(int drive, std::string path);
+
+    static const int maxDrives = 2;
+
+private:
+    std::fstream file[maxDrives];
+
+    uint32_t numSectors[maxDrives]{};
+};

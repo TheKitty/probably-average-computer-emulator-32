@@ -73,3 +73,47 @@ void FileFloppyIO::openDisk(int unit, std::string path)
         std::cout << "using " << (doubleSided[unit] ? 2 : 1) << " head(s) " << sectorsPerTrack[unit] << " sectors/track for floppy image\n";
     }
 }
+
+uint32_t FileATAIO::getNumSectors(int drive)
+{
+    if(drive >= maxDrives)
+        return 0;
+
+    return numSectors[drive];
+}
+
+bool FileATAIO::read(int drive, uint8_t *buf, uint32_t lba)
+{
+    if(drive >= maxDrives)
+        return false;
+
+    file[drive].clear();
+
+    return file[drive].seekg(lba * 512).read(reinterpret_cast<char *>(buf), 512).gcount() == 512;
+}
+
+bool FileATAIO::write(int drive, const uint8_t *buf, uint32_t lba)
+{
+    if(drive >= maxDrives)
+        return false;
+
+    file[drive].clear();
+
+    return file[drive].seekp(lba * 512).write(reinterpret_cast<const char *>(buf), 512).good();
+}
+
+void FileATAIO::openDisk(int drive, std::string path)
+{
+    if(drive >= maxDrives)
+        return;
+
+    file[drive].open(path, std::ios::in | std::ios::out | std::ios::binary);
+
+    // get size
+    file[drive].seekg(0, std::ios::end);
+    numSectors[drive] = file[drive].tellg() / 512;
+    file[drive].seekg(0);
+
+    if(file[drive])
+        std::cout << "Loaded ATA disk " << drive << ": " << path << " (size " << numSectors[drive] * 512 << ")\n";
+}
