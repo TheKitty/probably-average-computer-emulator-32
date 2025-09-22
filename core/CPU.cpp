@@ -2315,11 +2315,20 @@ void RAM_FUNC(CPU::executeInstruction)()
         case 0x96:
         case 0x97:
         {
-            auto srcReg = static_cast<Reg16>(opcode & 7);
-
-            auto tmp = reg(Reg16::AX);
-            reg(Reg16::AX) = reg(srcReg);
-            reg(srcReg) = tmp;
+            if(operandSize32)
+            {
+                auto srcReg = static_cast<Reg32>(opcode & 7);
+                auto tmp = reg(Reg32::EAX);
+                reg(Reg32::EAX) = reg(srcReg);
+                reg(srcReg) = tmp;
+            }
+            else
+            {
+                auto srcReg = static_cast<Reg16>(opcode & 7);
+                auto tmp = reg(Reg16::AX);
+                reg(Reg16::AX) = reg(srcReg);
+                reg(srcReg) = tmp;
+            }
 
             cyclesExecuted(3);
             break;
