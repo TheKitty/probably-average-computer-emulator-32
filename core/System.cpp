@@ -854,6 +854,55 @@ void Chipset::sendKey(ATScancode scancode, bool down)
         flagPICInterrupt(1);
 }
 
+void Chipset::addMouseMotion(int x, int y)
+{
+    mouseXMotion += x;
+    mouseYMotion -= y; // y is inverted
+}
+
+void Chipset::setMouseButton(int button, bool state)
+{
+    auto buttonMask = 1 << button;
+    auto newState = (state ? 1 : 0) << button;
+
+    if((mouseButtons & buttonMask) != newState)
+    {
+        changedMouseButtons |= buttonMask;
+        mouseButtons ^= buttonMask;
+    }
+}
+
+void Chipset::syncMouse()
+{
+    if(!changedMouseButtons && !mouseXMotion && !mouseYMotion)
+        return;
+
+    // check if enabled (assume mouse is second port)
+    if(!(i8042PortEnabled & (1 << 1)))
+        return;
+
+    if(!(i8042DeviceSendEnabled & (1 << 1)))
+        return;
+
+    // make sure queue isn't full
+    if(i8042Queue.getCount() > 16 - 3)
+        return;
+
+    // TODO: clamp motion?
+
+    i8042Queue.push(0x100 | (mouseYMotion & 0x100) >> 3 | (mouseXMotion & 0x100) >> 4 | 0x08 | mouseButtons);
+    i8042Queue.push(0x100 | (mouseXMotion & 0xFF));
+    i8042Queue.push(0x100 | (mouseYMotion & 0xFF));
+
+    changedMouseButtons = 0;
+    mouseXMotion = 0;
+    mouseYMotion = 0;
+
+    // flag interrupt if enabled
+    if(i8042Configuration & (1 << 1))
+        flagPICInterrupt(12);
+}
+
 void Chipset::setSpeakerAudioCallback(SpeakerAudioCallback cb)
 {
     speakerCb = cb;

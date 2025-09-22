@@ -64,6 +64,11 @@ public:
     // 8042
     void sendKey(ATScancode scancode, bool down);
 
+    void addMouseMotion(int x, int y);
+    void setMouseButton(int button, bool state);
+
+    void syncMouse();
+
     // PIT/speaker
     void setSpeakerAudioCallback(SpeakerAudioCallback cb);
 
@@ -148,6 +153,10 @@ private:
     uint8_t i8042Configuration = 0;
     uint8_t i8042DeviceSendEnabled = 0;
     bool i8042WriteSecondPort = false;
+
+    uint8_t mouseButtons = 0;
+    uint8_t changedMouseButtons = 0;
+    int mouseXMotion = 0, mouseYMotion = 0;
 
     uint8_t cmosIndex = 0; // 70
     uint8_t cmosRam[128];
