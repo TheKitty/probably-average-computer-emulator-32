@@ -587,8 +587,11 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cpu.run(now - lastTick);
+            int step = std::min(15, int(now - lastTick));
+            cpu.run(step);
         }
+
+        sys.getChipset().updateForDisplay(); // this just tries to make sure the PIT doesn't get too far behind
 
         lastTick = now;
 
