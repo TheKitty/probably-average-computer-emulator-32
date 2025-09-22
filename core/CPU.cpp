@@ -515,6 +515,10 @@ void RAM_FUNC(CPU::executeInstruction)()
     {
         if((opcode & 0xE7) == 0x26) // segment override (26 = ES, 2E = CS, 36 = SS, 3E = DS)
             segmentOverride = static_cast<Reg16>(static_cast<int>(Reg16::ES) + ((opcode >> 3) & 3)); // the middle two bits
+        else if(opcode == 0x64)
+            segmentOverride = Reg16::FS;
+        else if(opcode == 0x65)
+            segmentOverride = Reg16::GS;
         else if(opcode == 0x66) // operand size override
             operandSizeOverride = true;
         else if(opcode == 0x67)
