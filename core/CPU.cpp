@@ -3173,8 +3173,17 @@ void RAM_FUNC(CPU::executeInstruction)()
             int cycles = 16 + 2 * 4;
     
             auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
-            reg(static_cast<Reg16>(r)) = readMem16(offset, segment);
-            setSegmentReg(Reg16::ES, readMem16(offset + 2, segment));
+
+            if(operandSize32)
+            {
+                reg(static_cast<Reg32>(r)) = readMem32(offset, segment);
+                setSegmentReg(Reg16::ES, readMem16(offset + 4, segment));
+            }
+            else
+            {
+                reg(static_cast<Reg16>(r)) = readMem16(offset, segment);
+                setSegmentReg(Reg16::ES, readMem16(offset + 2, segment));
+            }
             
             reg(Reg32::EIP) += 1;
             cyclesExecuted(cycles);
@@ -3192,8 +3201,17 @@ void RAM_FUNC(CPU::executeInstruction)()
             int cycles = 16 + 2 * 4;
     
             auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
-            reg(static_cast<Reg16>(r)) = readMem16(offset, segment);
-            setSegmentReg(Reg16::DS, readMem16(offset + 2, segment));
+
+            if(operandSize32)
+            {
+                reg(static_cast<Reg32>(r)) = readMem32(offset, segment);
+                setSegmentReg(Reg16::DS, readMem16(offset + 4, segment));
+            }
+            else
+            {
+                reg(static_cast<Reg16>(r)) = readMem16(offset, segment);
+                setSegmentReg(Reg16::DS, readMem16(offset + 2, segment));
+            }
             
             reg(Reg32::EIP) += 1;
             cyclesExecuted(cycles);
