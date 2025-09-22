@@ -122,6 +122,13 @@ uint8_t Chipset::read(uint16_t addr)
             return ret & 0xFF;
         }
 
+        case 0x61: // system control A
+        {
+            updatePIT();
+            // pit ch2 state in bit 5
+            return (systemControlA & 0xF) | ((pit.outState >> 2) & 1) << 5;
+        }
+
         case 0x64: // 8042 "keyboard controller" status
         {
             bool hasOutputData = !i8042Queue.empty();
@@ -506,6 +513,10 @@ void Chipset::write(uint16_t addr, uint8_t data)
             }
             break;
         }
+
+        case 0x61: // system control A
+            systemControlA = data;
+            break;
 
         case 0x64: // 8042 command
         {
@@ -956,8 +967,8 @@ void Chipset::updatePIT()
                 continue;
 
             // ch2 gate
-            //if(i == 2 && !(ppi.output[1] & 1)) // FIXME
-            //    continue;
+            if(i == 2 && !(systemControlB & 1))
+                continue;
 
             int mode = (pit.control[i] >> 1) & 7;
 
@@ -1030,8 +1041,8 @@ void Chipset::calculateNextPITUpdate()
             continue;
 
         // ch2 gate
-        //if(i == 2 && !(ppi.output[1] & 1)) //FIXME
-        //    continue;
+        if(i == 2 && !(systemControlB & 1))
+            continue;
 
         int mode = (pit.control[i] >> 1) & 7;
 
@@ -1067,8 +1078,8 @@ void Chipset::updateSpeaker(uint32_t target)
 
     speakerSampleTimer += elapsed << fracBits;
 
-    bool gate = false; // FIXME
-    bool ppiData = false; // FIXME
+    bool gate = !(systemControlB & 1);
+    bool ppiData = !(systemControlB & 2);
     bool pitData = pit.outState & (1 << 2);
 
     // gate low makes timer output high

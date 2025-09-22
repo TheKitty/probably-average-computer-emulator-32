@@ -152,7 +152,8 @@ private:
     uint8_t cmosIndex = 0; // 70
     uint8_t cmosRam[128];
 
-    uint8_t systemControlA;
+    uint8_t systemControlA = 0; // 92
+    uint8_t systemControlB = 0; // 61
 
     uint32_t lastSpeakerUpdateCycle = 0;
     uint32_t speakerSampleTimer = 0;
