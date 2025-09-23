@@ -1556,6 +1556,48 @@ void RAM_FUNC(CPU::executeInstruction)()
             break;
         }
 
+        case 0x60: // PUSHA
+        {
+            auto sp = reg(Reg32::ESP);
+            push(reg(Reg32::EAX), operandSize32);
+            push(reg(Reg32::ECX), operandSize32);
+            push(reg(Reg32::EDX), operandSize32);
+            push(reg(Reg32::EBX), operandSize32);
+            push(sp, operandSize32);
+            push(reg(Reg32::EBP), operandSize32);
+            push(reg(Reg32::ESI), operandSize32);
+            push(reg(Reg32::EDI), operandSize32);
+
+            break;
+        }
+        case 0x61: // POPA
+        {
+            if(operandSize32)
+            {
+                reg(Reg32::EDI) = pop(true);
+                reg(Reg32::ESI) = pop(true);
+                reg(Reg32::EBP) = pop(true);
+                pop(true); // skip sp
+                reg(Reg32::EBX) = pop(true);
+                reg(Reg32::EDX) = pop(true);
+                reg(Reg32::ECX) = pop(true);
+                reg(Reg32::EAX) = pop(true);
+            }
+            else
+            {
+                reg(Reg16::DI) = pop(false);
+                reg(Reg16::SI) = pop(false);
+                reg(Reg16::BP) = pop(false);
+                pop(false); // skip sp
+                reg(Reg16::BX) = pop(false);
+                reg(Reg16::DX) = pop(false);
+                reg(Reg16::CX) = pop(false);
+                reg(Reg16::AX) = pop(false);
+            }
+
+            break;
+        }
+
         case 0x68: // PUSH imm16/32
         {
             uint32_t imm;
