@@ -1041,6 +1041,15 @@ void RAM_FUNC(CPU::executeInstruction)()
                     break;
                 }
 
+                case 0xB4: // LFS
+                    loadFarPointer(addr + 1, Reg16::FS, operandSize32);
+                    reg(Reg32::EIP)++;
+                    break;
+                case 0xB5: // LGS
+                    loadFarPointer(addr + 1, Reg16::GS, operandSize32);
+                    reg(Reg32::EIP)++;
+                    break;
+
                 case 0xB6: // MOVZX 8 -> 16/32
                 {
                     auto modRM = sys.readMem(addr + 2);
