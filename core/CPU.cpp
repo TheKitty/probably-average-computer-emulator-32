@@ -2285,7 +2285,10 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             auto srcReg = static_cast<Reg16>(r + static_cast<int>(Reg16::ES));
 
-            writeRM16(modRM, reg(srcReg), cycles, addr);
+            if(operandSize32)
+                writeRM32(modRM, reg(srcReg), cycles, addr);
+            else
+                writeRM16(modRM, reg(srcReg), cycles, addr);
 
             reg(Reg32::EIP)++;
             cyclesExecuted(cycles);
