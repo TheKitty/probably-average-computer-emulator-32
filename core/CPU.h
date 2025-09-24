@@ -98,6 +98,7 @@ private:
     uint8_t readMem8(uint32_t offset, uint32_t segment = 0);
     uint16_t readMem16(uint32_t offset, uint32_t segment = 0);
     uint32_t readMem32(uint32_t offset, uint32_t segment = 0);
+    void writeMem8(uint32_t offset, uint32_t segment, uint8_t data);
     void writeMem16(uint32_t offset, uint32_t segment, uint16_t data);
     void writeMem32(uint32_t offset, uint32_t segment, uint32_t data);
 

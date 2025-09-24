@@ -1737,9 +1737,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 while(count)
                 {
                     // TODO: interrupt
-                    auto destAddr = getSegmentOffset(Reg16::ES) + di;
-
-                    sys.writeMem(destAddr, sys.readIOPort(port));
+                    writeMem8(di, getSegmentOffset(Reg16::ES), sys.readIOPort(port));
 
                     di += step;
 
@@ -1757,9 +1755,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto destAddr = getSegmentOffset(Reg16::ES) + di;
-
-                sys.writeMem(destAddr, sys.readIOPort(port));
+                writeMem8(di, getSegmentOffset(Reg16::ES), sys.readIOPort(port));
 
                 di += step;
 
@@ -2575,10 +2571,9 @@ void RAM_FUNC(CPU::executeInstruction)()
                 reg(Reg32::EIP) += 2;
             }
 
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;            
-            memAddr += getSegmentOffset(segment);
+            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            sys.writeMem(memAddr, reg(Reg8::AL));
+            writeMem8(memAddr, getSegmentOffset(segment), reg(Reg8::AL));
 
             cyclesExecuted(10);
             break;
@@ -2635,10 +2630,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 while(count)
                 {
                     // TODO: interrupt
-
-                    auto destAddr = getSegmentOffset(Reg16::ES) + di;
-
-                    sys.writeMem(destAddr, readMem8(si, getSegmentOffset(segment)));
+                    auto v = readMem8(si, getSegmentOffset(segment));
+                    writeMem8(di, getSegmentOffset(Reg16::ES), v);
 
                     si += step;
                     di += step;
@@ -2660,9 +2653,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto destAddr = getSegmentOffset(Reg16::ES) + di;
-
-                sys.writeMem(destAddr, readMem8(si, getSegmentOffset(segment)));
+                auto v = readMem8(si, getSegmentOffset(segment));
+                writeMem8(di, getSegmentOffset(Reg16::ES), v);
 
                 si += step;
                 di += step;
@@ -3008,8 +3000,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 while(count)
                 {
                     // TODO: interrupt
-                    auto addr = (getSegmentOffset(Reg16::ES)) + di;
-                    sys.writeMem(addr, reg(Reg8::AL));
+                    writeMem8(di, getSegmentOffset(Reg16::ES), reg(Reg8::AL));
 
                     di += step;
 
@@ -3027,8 +3018,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                auto addr = (getSegmentOffset(Reg16::ES)) + di;
-                sys.writeMem(addr, reg(Reg8::AL));
+                writeMem8(di, getSegmentOffset(Reg16::ES), reg(Reg8::AL));
 
                 di += step;
 
@@ -4350,6 +4340,11 @@ uint32_t RAM_FUNC(CPU::readMem32)(uint32_t offset, uint32_t segment)
            sys.readMem(offset + 3 + segment) << 24;
 }
 
+void RAM_FUNC(CPU::writeMem8)(uint32_t offset, uint32_t segment, uint8_t data)
+{
+    sys.writeMem(offset + segment, data);
+}
+
 void RAM_FUNC(CPU::writeMem16)(uint32_t offset, uint32_t segment, uint16_t data)
 {
     sys.writeMem(offset + segment, data & 0xFF);
@@ -4675,7 +4670,7 @@ void RAM_FUNC(CPU::writeRM8)(uint8_t modRM, uint8_t v, int &cycles, uint32_t add
     if(mod != 3)
     {
         auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, rw, addr);
-        sys.writeMem(offset + additionalOffset + segment, v);
+        writeMem8(offset + additionalOffset, segment, v);
     }
     else
         reg(static_cast<Reg8>(rm)) = v;
