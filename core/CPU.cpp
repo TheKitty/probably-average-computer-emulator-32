@@ -2440,12 +2440,22 @@ void RAM_FUNC(CPU::executeInstruction)()
             cyclesExecuted(2);
             break;
         }
-        case 0x99: // CWD
+        case 0x99: // CWD/CDQ
         {
-            if(reg(Reg16::AX) & 0x8000)
-                reg(Reg16::DX) = 0xFFFF;
-            else
-                reg(Reg16::DX) = 0;
+            if(operandSize32) // CDQ
+            {
+                if(reg(Reg32::EAX) & 0x80000000)
+                    reg(Reg32::EDX) = 0xFFFFFFFF;
+                else
+                    reg(Reg32::EDX) = 0;
+            }
+            else // CWD
+            {
+                if(reg(Reg16::AX) & 0x8000)
+                    reg(Reg16::DX) = 0xFFFF;
+                else
+                    reg(Reg16::DX) = 0;
+            }
 
             cyclesExecuted(5);
             break;
