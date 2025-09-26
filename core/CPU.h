@@ -49,6 +49,8 @@ public:
         DS,
         FS,
         GS,
+
+        TR, // task register (task state segment)
     };
 
     enum class Reg32
@@ -69,7 +71,7 @@ public:
 
         // hole for segments
 
-        CR0 = 15,
+        CR0 = 16,
         CR1,
         CR2,
         CR3,
@@ -154,10 +156,10 @@ private:
     // internal state
 
     // registers
-    uint32_t regs[19]; // segment regs are only 16-bit...
+    uint32_t regs[20]; // segment regs are only 16-bit...
     uint32_t flags;
 
-    SegmentDescriptor segmentDescriptorCache[6];
+    SegmentDescriptor segmentDescriptorCache[7];
 
     uint32_t gdtBase, ldtBase, idtBase;
     uint16_t gdtLimit, ldtLimit, idtLimit;
