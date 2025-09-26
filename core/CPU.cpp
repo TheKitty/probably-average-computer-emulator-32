@@ -2285,13 +2285,22 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = readMem8(addr + 1);
             auto r = (modRM >> 3) & 0x7;
 
-            auto srcReg = static_cast<Reg16>(r);
-
             int cycles = (modRM >> 6) == 3 ? 4 : 17 + 2 * 4;
 
-            auto tmp = readRM16(modRM, cycles, addr);
-            writeRM16(modRM, reg(srcReg), cycles, addr, true);
-            reg(srcReg) = tmp;
+            if(operandSize32)
+            {
+                auto srcReg = static_cast<Reg32>(r);
+                auto tmp = readRM32(modRM, cycles, addr);
+                writeRM32(modRM, reg(srcReg), cycles, addr, true);
+                reg(srcReg) = tmp;
+            }
+            else
+            {
+                auto srcReg = static_cast<Reg16>(r);
+                auto tmp = readRM16(modRM, cycles, addr);
+                writeRM16(modRM, reg(srcReg), cycles, addr, true);
+                reg(srcReg) = tmp;
+            }
 
             reg(Reg32::EIP) += 1;
             cyclesExecuted(cycles);
