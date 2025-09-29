@@ -1022,17 +1022,23 @@ void RAM_FUNC(CPU::executeInstruction)()
                     {
                         bit = reg(static_cast<Reg32>(r));
 
-                        auto data = readRM32(modRM, cycles, addr + 1, (bit / 32) * 4);
-                        value = data & (1 << (bit & 31));
-                        writeRM32(modRM, data | 1 << bit, cycles, addr + 1, true, (bit / 32) * 4);
+                        int off = (bit / 32) * 4;
+                        bit &= 31;
+
+                        auto data = readRM32(modRM, cycles, addr + 1, off);
+                        value = data & (1 << bit);
+                        writeRM32(modRM, data | 1 << bit, cycles, addr + 1, true, off);
                     }
                     else
                     {
                         bit = reg(static_cast<Reg16>(r));
 
-                        auto data = readRM16(modRM, cycles, addr + 1, (bit / 16) * 2);
-                        value = data & (1 << (bit & 15));
-                        writeRM16(modRM, data | 1 << bit, cycles, addr + 1, true, (bit / 16) * 2);
+                        int off = (bit / 16) * 2;
+                        bit &= 15;
+
+                        auto data = readRM16(modRM, cycles, addr + 1, off);
+                        value = data & (1 << bit);
+                        writeRM16(modRM, data | 1 << bit, cycles, addr + 1, true, off);
                     }
 
                     if(value)
