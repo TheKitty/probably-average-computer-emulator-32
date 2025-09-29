@@ -2541,15 +2541,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto newIP = readMem16(addr + 1);
             auto newCS = readMem16(addr + 3);
 
-            // push CS
-            push(reg(Reg16::CS), operandSize32);
+            farCall(newCS, newIP, reg(Reg32::EIP) + 4, operandSize32, stackAddrSize32);
 
-            // push IP
-            auto retAddr = reg(Reg32::EIP) + 4;
-            push(retAddr, operandSize32);
-
-            setSegmentReg(Reg16::CS, newCS);
-            setIP(newIP);
             cyclesExecuted(28 + 2 * 4);
             break;
         }
@@ -4427,15 +4420,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                     auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycleTmp, true, addr);
                     auto newCS = readMem16(offset + 2, segment);
 
-                    // push CS
-                    push(reg(Reg16::CS), operandSize32);
+                    farCall(newCS, v, reg(Reg32::EIP) + 1, operandSize32, stackAddrSize32);
 
-                    // push IP
-                    auto retAddr = reg(Reg32::EIP) + 1;
-                    push(retAddr, operandSize32);
-
-                    setSegmentReg(Reg16::CS, newCS);
-                    setIP(v);
                     cyclesExecuted(38 + 4 * 4);
                     break;
                 }
@@ -5043,6 +5029,23 @@ void CPU::doPush(uint32_t val, bool op32, bool addr32)
         reg(Reg32::ESP) = sp;
     else
         reg(Reg16::SP) = sp;
+}
+
+void CPU::farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operandSize32, bool stackAddress32)
+{
+    // push CS
+    doPush(reg(Reg16::CS), operandSize32, stackAddress32);
+
+    // push IP
+    doPush(retAddr, operandSize32, stackAddress32);
+
+    // go to new CS:IP
+    setSegmentReg(Reg16::CS, newCS);
+
+    if(!operandSize32)
+        newIP &= 0xFFFF;
+    
+    reg(Reg32::EIP) = newIP;
 }
 
 // LES/LDS/...
