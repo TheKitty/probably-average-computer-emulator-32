@@ -612,18 +612,7 @@ void RAM_FUNC(CPU::executeInstruction)()
     //push/pop
     auto push = [this, stackAddrSize32](uint32_t val, bool is32)
     {
-        uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-        sp -= is32 ? 4 : 2;
-
-        if(is32)
-            writeMem32(sp, getSegmentOffset(Reg16::SS), val);
-        else
-            writeMem16(sp, getSegmentOffset(Reg16::SS), val);
-
-        if(stackAddrSize32)
-            reg(Reg32::ESP) = sp;
-        else
-            reg(Reg16::SP) = sp;
+        doPush(val, is32, stackAddrSize32);
     };
 
     auto pop = [this, stackAddrSize32](bool is32)
@@ -5040,6 +5029,22 @@ void CPU::doALU32AImm(uint32_t addr)
     cyclesExecuted(4);
 }
 
+void CPU::doPush(uint32_t val, bool op32, bool addr32)
+{
+    uint32_t sp = addr32 ? reg(Reg32::ESP) : reg(Reg16::SP);
+    sp -= op32 ? 4 : 2;
+
+    if(op32)
+        writeMem32(sp, getSegmentOffset(Reg16::SS), val);
+    else
+        writeMem16(sp, getSegmentOffset(Reg16::SS), val);
+
+    if(addr32)
+        reg(Reg32::ESP) = sp;
+    else
+        reg(Reg16::SP) = sp;
+}
+
 // LES/LDS/...
 void CPU::loadFarPointer(uint32_t addr, Reg16 segmentReg, bool operandSize32)
 {
@@ -5079,18 +5084,7 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
 
     auto push = [this, stackAddrSize32](uint32_t val, bool is32)
     {
-        uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-        sp -= is32 ? 4 : 2;
-
-        if(is32)
-            writeMem32(sp, getSegmentOffset(Reg16::SS), val);
-        else
-            writeMem16(sp, getSegmentOffset(Reg16::SS), val);
-
-        if(stackAddrSize32)
-            reg(Reg32::ESP) = sp;
-        else
-            reg(Reg16::SP) = sp;
+        doPush(val, is32, stackAddrSize32);
     };
 
     auto tempFlags = flags;
