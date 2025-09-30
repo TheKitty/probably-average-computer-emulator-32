@@ -954,6 +954,50 @@ void RAM_FUNC(CPU::executeInstruction)()
 
                     break;
                 }
+                case 0x03: // LSL
+                {
+                    assert(isProtectedMode() && !(flags & Flag_VM));
+
+                    auto modRM = readMem8(addr + 2);
+                    auto r = (modRM >> 3) & 0x7;
+
+                    int cycles;
+                    auto selector = readRM16(modRM, cycles, addr + 1);
+
+                    auto desc = loadSegmentDescriptor(selector);
+
+                    // privileges
+                    int cpl = reg(Reg16::CS) & 3;
+                    int rpl = selector & 3;
+                    int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
+
+                    // no priv checks for conforming code segment
+                    bool isConformingCode = (desc.flags & (SD_Type | SD_DirConform | SD_Executable)) == (SD_Type | SD_DirConform | SD_Executable);
+
+                    bool validDesc = isConformingCode || (cpl <= dpl && rpl <= dpl);
+
+                    if(!(desc.flags & SD_Type))
+                    {
+                        int sysType = (desc.flags & SD_SysType) >> 16;
+                        if(sysType != 0x1 && sysType != 0x2 && sysType != 0x3 && sysType != 0x9 && sysType != 0xB) // LDT or TSS
+                            validDesc = false;
+                    }
+
+                    if(validDesc)
+                    {
+                        flags |= Flag_Z;
+
+                        if(operandSize32)
+                            reg(static_cast<Reg32>(r)) = desc.limit;
+                        else
+                            reg(static_cast<Reg16>(r)) = desc.limit;
+                    }
+                    else
+                        flags &= ~Flag_Z;
+
+                    reg(Reg32::EIP) += 2;
+                    break;
+                }
 
                 case 0x06: // CLTS
                 {
