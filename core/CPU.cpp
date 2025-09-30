@@ -826,6 +826,47 @@ void RAM_FUNC(CPU::executeInstruction)()
                             break;
                         }
 
+                        case 0x4: // VERR
+                        case 0x5: // VERW
+                        {
+                            assert(isProtectedMode() && !(flags & Flag_VM));
+
+                            int cycles;
+                            auto selector = readRM16(modRM, cycles, addr + 1);
+
+                            auto desc = loadSegmentDescriptor(selector);
+
+                            // privileges
+                            int cpl = reg(Reg16::CS) & 3;
+                            int rpl = selector & 3;
+                            int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
+
+                            // no priv checks for conforming code segment
+                            bool isConformingCode = (desc.flags & (SD_Type | SD_DirConform | SD_Executable)) == (SD_Type | SD_DirConform | SD_Executable);
+
+                            bool validDesc = isConformingCode || (cpl <= dpl && rpl <= dpl);
+
+                            // has to be data/code segment
+                            if(!(desc.flags & SD_Type))
+                                validDesc = false;
+
+                            // code segments may not be readable, but data segments always are
+                            if(exOp == 0x4 && (desc.flags & SD_Executable) && !(desc.flags & SD_ReadWrite))
+                                validDesc = false;
+
+                            // code segments aren't writable, data segments may be
+                            if(exOp == 0x5 && ((desc.flags & SD_Executable) || !(desc.flags & SD_ReadWrite)))
+                                validDesc = false;
+
+                            if(validDesc)
+                                flags |= Flag_Z;
+                            else
+                                flags &= ~Flag_Z;
+
+                            reg(Reg32::EIP) += 2;
+                            break;
+                        }
+
                         default:
                             printf("op 0f 00 %02x @%05x\n", (int)exOp, addr);
                             exit(1);
