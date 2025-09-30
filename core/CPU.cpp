@@ -1490,6 +1490,15 @@ void RAM_FUNC(CPU::executeInstruction)()
                     break;
                 }
 
+                case 0xFF: // UD0
+                {
+                    // would be the default case if we weren't missing ops all over the place...
+                    // UD
+                    reg(Reg32::EIP)--; // back to start of op (FIXME: prefixes?)
+                    serviceInterrupt(0x6);
+                    break;
+                }
+
                 default:
                     printf("op 0f %02x @%05x\n", (int)opcode2, addr);
                     exit(1);
