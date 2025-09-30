@@ -1632,9 +1632,14 @@ void RAM_FUNC(CPU::executeInstruction)()
         case 0x5E:
         case 0x5F:
         {
-            auto r = static_cast<Reg32>(opcode & 7);
+            auto r = opcode & 7;
 
-            reg(r) = pop(operandSize32);
+            auto v = pop(operandSize32);
+
+            if(operandSize32)
+                reg(static_cast<Reg32>(r)) = v;
+            else
+                reg(static_cast<Reg16>(r)) = v;
 
             cyclesExecuted(8 + 4);
             break;
