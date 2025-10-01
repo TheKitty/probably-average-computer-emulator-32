@@ -167,6 +167,8 @@ private:
     uint32_t gdtBase, ldtBase, idtBase;
     uint16_t gdtLimit, ldtLimit, idtLimit;
 
+    uint8_t cpl;
+
     // enabling interrupts happens one opcode later
     bool delayInterrupt = false;
     

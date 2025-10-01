@@ -498,7 +498,9 @@ void CPU::reset()
     setSegmentReg(Reg16::CS, 0xF000);
     reg(Reg16::DS) = reg(Reg16::ES) = reg(Reg16::SS) = reg(Reg16::FS) = reg(Reg16::GS) = 0;
 
-    reg(Reg32::EIP) = 0xFFF0; // FFFFFFF0?
+    reg(Reg32::EIP) = 0xFFF0;
+
+    cpl = 0;
 }
 
 void RAM_FUNC(CPU::run)(int ms)
@@ -862,7 +864,6 @@ void RAM_FUNC(CPU::executeInstruction)()
                             auto desc = loadSegmentDescriptor(selector);
 
                             // privileges
-                            int cpl = reg(Reg16::CS) & 3;
                             int rpl = selector & 3;
                             int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
 
@@ -992,7 +993,6 @@ void RAM_FUNC(CPU::executeInstruction)()
                     auto desc = loadSegmentDescriptor(selector);
 
                     // privileges
-                    int cpl = reg(Reg16::CS) & 3;
                     int rpl = selector & 3;
                     int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
 
@@ -2862,11 +2862,10 @@ void RAM_FUNC(CPU::executeInstruction)()
                     exit(1);
                 }
             }
-            else if(!isProtectedMode() || (reg(Reg16::CS) & 3)/*CPL*/ == 0) // real mode or CPL == 0
+            else if(!isProtectedMode() || cpl == 0) // real mode or CPL == 0
                 flagMask = Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_T | Flag_I | Flag_D | Flag_O | Flag_IOPL | Flag_NT;
             else // protected mode, CPL > 0
             {
-                unsigned cpl = reg(Reg16::CS) & 3;
                 unsigned iopl = (flags & Flag_IOPL) >> 12;
 
                 flagMask = Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_T | Flag_D | Flag_O | Flag_NT;
@@ -3993,8 +3992,6 @@ void RAM_FUNC(CPU::executeInstruction)()
                 // pop flags
                 auto newFlags = pop(operandSize32);
 
-                unsigned cpl = (flags & Flag_VM) ? 3 : (reg(Reg16::CS) & 3);
-
                 if((newFlags & Flag_VM) && cpl == 0)
                 {
                     // return to virtual 8086 mode
@@ -4002,6 +3999,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     flags = newFlags;
                     setSegmentReg(Reg16::CS, newCS);
                     setIP(newIP);
+                    cpl = 3;
 
                     // prepare new stack
                     auto newESP = pop(operandSize32);
@@ -4415,7 +4413,6 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             if(isProtectedMode())
             {
-                unsigned cpl = (flags & Flag_VM) ? 3 : (reg(Reg16::CS) & 3);
                 if(cpl != 0)
                 {
                     // GP
@@ -5165,7 +5162,12 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
     reg(r) = value;
 
     if(isProtectedMode() && !(flags & Flag_VM))
+    {
         getCachedSegmentDescriptor(r) = loadSegmentDescriptor(value);
+
+        if(r == Reg16::CS)
+            cpl = value & 3;
+    }
     else
     {
         auto &desc = getCachedSegmentDescriptor(r);
@@ -5509,11 +5511,6 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
 
         auto gateType = access & 0xF;
         //int dpl = (access >> 5) & 3;
-
-        int cpl = reg(Reg16::CS) & 3;
-
-        if(flags & Flag_VM) // should be true? (CS isn't a selector in this mode)
-            cpl = 3;
 
         if(gateType == 0x5)
         {
