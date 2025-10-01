@@ -4669,14 +4669,22 @@ void RAM_FUNC(CPU::executeInstruction)()
             bool isReg = (modRM >> 6) == 3;
 
             int cycles = 0;
-            auto v = readRM16(modRM, cycles, addr);
+            uint32_t v = operandSize32 ? readRM32(modRM, cycles, addr) : readRM16(modRM, cycles, addr);
 
             switch(exOp)
             {
                 case 0: // INC
                 {
-                    auto res = doInc(v, flags);
-                    writeRM16(modRM, res, cycles, addr, true);
+                    if(operandSize32)
+                    {
+                        auto res = doInc(v, flags);
+                        writeRM32(modRM, res, cycles, addr, true);
+                    }
+                    else
+                    {
+                        auto res = doInc(uint16_t(v), flags);
+                        writeRM16(modRM, res, cycles, addr, true);
+                    }
 
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 3 : (15 + 2 * 4) + cycles);
@@ -4684,8 +4692,16 @@ void RAM_FUNC(CPU::executeInstruction)()
                 }
                 case 1: // DEC
                 {
-                    auto res = doDec(v, flags);
-                    writeRM16(modRM, res, cycles, addr, true);
+                    if(operandSize32)
+                    {
+                        auto res = doDec(v, flags);
+                        writeRM32(modRM, res, cycles, addr, true);
+                    }
+                    else
+                    {
+                        auto res = doDec(uint16_t(v), flags);
+                        writeRM16(modRM, res, cycles, addr, true);
+                    }
 
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 3 : (15 + 2 * 4) + cycles);
@@ -4728,7 +4744,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     // need the addr again...
                     int cycleTmp;
                     auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycleTmp, true, addr);
-                    auto newCS = readMem16(offset + 2, segment);
+                    auto newCS = readMem16(offset + (operandSize32 ? 4 : 2), segment);
 
                     setSegmentReg(Reg16::CS, newCS);
                     setIP(v);
