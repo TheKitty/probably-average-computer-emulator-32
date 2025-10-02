@@ -53,6 +53,7 @@ private:
 
     // attribute controller
     uint8_t attribPalette[16]; // 0-F
+    uint8_t attribMode = 0;
     uint8_t attribPlaneEnable = 0; // 12
 
     // sequencer

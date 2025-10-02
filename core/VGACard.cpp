@@ -51,14 +51,17 @@ void VGACard::drawScanline(int line, uint8_t *output)
             int fg = attr & 0xF;
 
             // TODO: char sets
-            // TODO: 9px repeat last col
-            auto fontLine = plane2[ch * 32 + line % charHeight];
+            uint16_t fontLine = plane2[ch * 32 + line % charHeight] << 8;
+
+            // copy last bit for line graphics
+            if((attribMode & (1 << 2)/*LGE*/) && ch >= 0xC0 && ch < 0xE0)
+                fontLine |= (fontLine >> 1) & 0x80;
 
             // TODO: cursor
 
             for(int x = 0; x < charWidth; x++)
             {
-                bool fontVal = ((fontLine << x) & 0x80);
+                bool fontVal = ((fontLine << x) & 0x8000);
 
                 // double palette lookup
                 uint8_t pal64 = attribPalette[(fontVal ? fg : bg)];
@@ -208,6 +211,8 @@ void VGACard::write(uint16_t addr, uint8_t data)
             {
                 if(attributeIndex < 0x10)
                     attribPalette[attributeIndex] = data;
+                else if(attributeIndex == 0x10)
+                    attribMode = data;
                 else if(attributeIndex == 0x12)
                     attribPlaneEnable = data;
                 else
