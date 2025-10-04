@@ -117,7 +117,7 @@ uint8_t Chipset::read(uint16_t addr)
             // re-flag interrupt if enabled and more data
             if(!i8042Queue.empty())
             {
-                bool isSecondPort = ret >> 8;
+                bool isSecondPort = i8042Queue.peek() >> 8;
                 if((i8042Configuration & (1 << 0)) && !isSecondPort)
                     flagPICInterrupt(1);
                 else if((i8042Configuration & (1 << 1)) && isSecondPort)
