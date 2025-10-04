@@ -5254,6 +5254,31 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
     }
 }
 
+std::tuple<uint32_t, uint16_t> CPU::getTSSStackPointer(int dpl)
+{
+    auto &tsDesc = getCachedSegmentDescriptor(Reg16::TR);
+    uint32_t newSP;
+    uint16_t newSS;
+
+    int descType = (tsDesc.flags & SD_SysType);
+
+    assert(!(tsDesc.flags & SD_Type));
+
+    if(descType == SD_SysTypeTSS32 || descType == SD_SysTypeBusyTSS32) // 32 bit
+    {
+        newSP = readMem32(tsDesc.base + 4 + dpl * 8 + 0); // ESP[DPL]
+        newSS = readMem16(tsDesc.base + 4 + dpl * 8 + 4); // SS[DPL]
+    }
+    else // 16 bit
+    {
+        assert(descType == SD_SysTypeTSS16 || descType == SD_SysTypeBusyTSS16);
+        newSP = readMem16(tsDesc.base + 2 + dpl * 4 + 0); // SP[DPL]
+        newSS = readMem16(tsDesc.base + 2 + dpl * 4 + 2); // SS[DPL]
+    }
+
+    return {newSP, newSS};
+}
+
 // also address size, but with a different override prefix
 bool CPU::isOperandSize32(bool override)
 {
@@ -5609,11 +5634,7 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
                 auto tmpSP = reg(Reg32::ESP);
 
                 // restore SS:ESP from TSS
-                auto &tsDesc = getCachedSegmentDescriptor(Reg16::TR);
-                assert((tsDesc.flags & SD_SysType) == 0x9 << 16); // 32bit
-
-                auto newSP = readMem32(tsDesc.base + 4 + newCSDPL * 8 + 0); // ESP[DPL]
-                auto newSS = readMem16(tsDesc.base + 4 + newCSDPL * 8 + 4); // SS[DPL]
+                auto [newSP, newSS] = getTSSStackPointer(newCSDPL);
 
                 setSegmentReg(Reg16::SS, newSS);
                 reg(Reg32::ESP) = newSP;

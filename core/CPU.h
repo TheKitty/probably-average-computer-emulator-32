@@ -114,6 +114,8 @@ private:
     SegmentDescriptor loadSegmentDescriptor(uint16_t selector);
     void setSegmentReg(Reg16 r, uint16_t value);
 
+    std::tuple<uint32_t, uint16_t> getTSSStackPointer(int dpl);
+
     bool isProtectedMode() {return reg(Reg32::CR0) & 1;}
     bool isOperandSize32(bool override);
     bool isStackAddressSize32();
