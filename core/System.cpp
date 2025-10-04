@@ -399,6 +399,9 @@ void Chipset::write(uint16_t addr, uint8_t data)
                     printf("8042 cfg %02X\n", data);
                     i8042Configuration = data;
                 }
+                else if(i8042ControllerCommand == 0xD1)
+                    printf("8042 output %02X\n", data);
+
                 i8042ControllerCommand = 0;
                 break;
             }
@@ -490,6 +493,11 @@ void Chipset::write(uint16_t addr, uint8_t data)
                         printf("8042 dat %02X (dev %i)\n", data, devIndex);
                     break;
 
+                case 0xF2: // identify
+                    i8042Queue.push(0xFA | devIndex << 8); // ACK
+                    if(devIndex)
+                        i8042Queue.push(0x00 | devIndex << 8); // mouse ID
+                    break;
                 case 0xF3: // typematic (keyboard)/ sample rate (mouse)
                     i8042DeviceCommand[devIndex] = data;
                     i8042Queue.push(0xFA | devIndex << 8); // ACK
@@ -527,6 +535,7 @@ void Chipset::write(uint16_t addr, uint8_t data)
             switch(data)
             {
                 case 0x60: // write config byte
+                case 0xD1: // write output port
                     i8042ControllerCommand = data;
                     break;
                 case 0xA7: // disable second port
