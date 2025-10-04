@@ -4652,65 +4652,119 @@ void RAM_FUNC(CPU::executeInstruction)()
             bool isReg = (modRM >> 6) == 3;
 
             int cycles = 0;
-            auto v = readRM16(modRM, cycles, addr);
+            uint32_t v;
+
+            if(operandSize32)
+                v = readRM32(modRM, cycles, addr);
+            else
+                v = readRM16(modRM, cycles, addr);
 
             switch(exOp)
             {
                 case 0: // TEST imm
                 {
                     int immOff = 2 + getDispLen(modRM, addr + 2);
-                    uint16_t imm = readMem16(addr + immOff);
+                    if(operandSize32)
+                    {
+                        uint32_t imm = readMem32(addr + immOff);
+                        doAnd(v, imm, flags);
 
-                    doAnd(v, imm, flags);
+                        reg(Reg32::EIP) += 5;
+                    }
+                    else
+                    {
+                        uint16_t imm = readMem16(addr + immOff);
+                        doAnd(uint16_t(v), imm, flags);
 
-                    reg(Reg32::EIP) += 3;
+                        reg(Reg32::EIP) += 3;
+                    }
+
                     cyclesExecuted(isReg ? 5 : 11 + cycles);
                     break;
                 }
                 // 1 is invalid
                 case 2: // NOT
                 {
-                    writeRM16(modRM, ~v, cycles, addr, true);
+                    if(operandSize32)
+                        writeRM32(modRM, ~v, cycles, addr, true);
+                    else
+                        writeRM16(modRM, ~v, cycles, addr, true);
+
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 3 : 16 + 2 * 4 + cycles);
                     break;
                 }
                 case 3: // NEG
                 {
-                    writeRM16(modRM, doSub(uint16_t(0), v, flags), cycles, addr, true);
+                    if(operandSize32)
+                        writeRM32(modRM, doSub(uint32_t(0), v, flags), cycles, addr, true);
+                    else
+                        writeRM16(modRM, doSub(uint16_t(0), uint16_t(v), flags), cycles, addr, true);
+
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 3 : 16 + 2 * 4 + cycles);
                     break;
                 }
                 case 4: // MUL
                 {
-                    auto res = static_cast<uint32_t>(reg(Reg16::AX)) * v;
+                    if(operandSize32)
+                    {
+                        auto res = static_cast<uint64_t>(reg(Reg32::EAX)) * v;
 
-                    reg(Reg16::AX) = res;
-                    reg(Reg16::DX) = res >> 16;
+                        reg(Reg32::EAX) = res;
+                        reg(Reg32::EDX) = res >> 32;
 
-                    if(res >> 16)
-                        flags |= Flag_C | Flag_O;
+                        if(res >> 32)
+                            flags |= Flag_C | Flag_O;
+                        else
+                            flags &= ~(Flag_C | Flag_O);
+                    }
                     else
-                        flags &= ~(Flag_C | Flag_O);
+                    {
+                        auto res = static_cast<uint32_t>(reg(Reg16::AX)) * v;
 
+                        reg(Reg16::AX) = res;
+                        reg(Reg16::DX) = res >> 16;
+
+                        if(res >> 16)
+                            flags |= Flag_C | Flag_O;
+                        else
+                            flags &= ~(Flag_C | Flag_O);
+                    }
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 118 : 124 + 4 + cycles); // - 133/139
                     break;
                 }
                 case 5: // IMUL
                 {
-                    int32_t a = static_cast<int16_t>(reg(Reg16::AX));
-                    auto res = a * static_cast<int16_t>(v);
+                    if(operandSize32)
+                    {
+                        int64_t a = static_cast<int32_t>(reg(Reg32::EAX));
+                        auto res = a * static_cast<int32_t>(v);
 
-                    reg(Reg16::AX) = res;
-                    reg(Reg16::DX) = res >> 16;
+                        reg(Reg32::EAX) = res;
+                        reg(Reg32::EDX) = res >> 32;
 
-                    // check if upper half matches lower half's sign
-                    if(res >> 16 != (res & 0x8000 ? -1 : 0))
-                        flags |= Flag_C | Flag_O;
+                        // check if upper half matches lower half's sign
+                        if(res >> 32 != (res & 0x80000000 ? -1 : 0))
+                            flags |= Flag_C | Flag_O;
+                        else
+                            flags &= ~(Flag_C | Flag_O);
+                    }
                     else
-                        flags &= ~(Flag_C | Flag_O);
+                    {
+                        int32_t a = static_cast<int16_t>(reg(Reg16::AX));
+                        auto res = a * static_cast<int16_t>(v);
+
+                        reg(Reg16::AX) = res;
+                        reg(Reg16::DX) = res >> 16;
+
+                        // check if upper half matches lower half's sign
+                        if(res >> 16 != (res & 0x8000 ? -1 : 0))
+                            flags |= Flag_C | Flag_O;
+                        else
+                            flags &= ~(Flag_C | Flag_O);
+                    }
 
                     reg(Reg32::EIP)++;
                     cyclesExecuted(isReg ? 128 : 134 + 4 + cycles); // - 154/160
@@ -4718,44 +4772,91 @@ void RAM_FUNC(CPU::executeInstruction)()
                 }
                 case 6: // DIV
                 {
-                    uint32_t num = reg(Reg16::AX) | reg(Reg16::DX) << 16;
-
-                    if(v == 0 || num / v > 0xFFFF)
+                    if(operandSize32)
                     {
-                        // fault
-                        reg(Reg32::EIP)++;
-                        serviceInterrupt(0);
+                        uint64_t num = reg(Reg32::EAX) | uint64_t(reg(Reg32::EDX)) << 32;
+
+                        if(v == 0 || num / v > 0xFFFFFFFF)
+                        {
+                            // fault
+                            reg(Reg32::EIP)++;
+                            serviceInterrupt(0);
+                        }
+                        else
+                        {
+                            reg(Reg32::EAX) = num / v;
+                            reg(Reg32::EDX) = num % v;
+
+                            reg(Reg32::EIP)++;
+                            cyclesExecuted(isReg ? 144 : 154 + 4 + cycles); // - 162/174
+                        }
                     }
                     else
                     {
-                        reg(Reg16::AX) = num / v;
-                        reg(Reg16::DX) = num % v;
+                        uint32_t num = reg(Reg16::AX) | reg(Reg16::DX) << 16;
 
-                        reg(Reg32::EIP)++;
-                        cyclesExecuted(isReg ? 144 : 154 + 4 + cycles); // - 162/174
+                        if(v == 0 || num / v > 0xFFFF)
+                        {
+                            // fault
+                            reg(Reg32::EIP)++;
+                            serviceInterrupt(0);
+                        }
+                        else
+                        {
+                            reg(Reg16::AX) = num / v;
+                            reg(Reg16::DX) = num % v;
+
+                            reg(Reg32::EIP)++;
+                            cyclesExecuted(isReg ? 144 : 154 + 4 + cycles); // - 162/174
+                        }
                     }
                     break;
                 }
                 case 7: // IDIV
                 {
-                    int32_t num = reg(Reg16::AX) | reg(Reg16::DX) << 16;
-                    int iv = static_cast<int16_t>(v);
-
-                    int res = v == 0 ? 0xFFFF : num / iv;
-
-                    if(res > 0x7FFF || res < -0x7FFF)
+                    if(operandSize32)
                     {
-                        // fault
-                        reg(Reg32::EIP)++;
-                        serviceInterrupt(0);
+                        int64_t num = reg(Reg32::EAX) | uint64_t(reg(Reg32::EDX)) << 32;
+                        int32_t iv = static_cast<int32_t>(v);
+
+                        int64_t res = v == 0 ? 0xFFFFFFFF : num / iv;
+
+                        if(res > 0x7FFFFFFF || res < -0x7FFFFFFF)
+                        {
+                            // fault
+                            reg(Reg32::EIP)++;
+                            serviceInterrupt(0);
+                        }
+                        else
+                        {
+                            reg(Reg32::EAX) = res;
+                            reg(Reg32::EDX) = num % iv;
+
+                            reg(Reg32::EIP)++;
+                            cyclesExecuted(isReg ? 165 : 171 + 4 + cycles); // - 184/190
+                        }
                     }
                     else
                     {
-                        reg(Reg16::AX) = res;
-                        reg(Reg16::DX) = num % iv;
+                        int32_t num = reg(Reg16::AX) | reg(Reg16::DX) << 16;
+                        int iv = static_cast<int16_t>(v);
 
-                        reg(Reg32::EIP)++;
-                        cyclesExecuted(isReg ? 165 : 171 + 4 + cycles); // - 184/190
+                        int res = v == 0 ? 0xFFFF : num / iv;
+
+                        if(res > 0x7FFF || res < -0x7FFF)
+                        {
+                            // fault
+                            reg(Reg32::EIP)++;
+                            serviceInterrupt(0);
+                        }
+                        else
+                        {
+                            reg(Reg16::AX) = res;
+                            reg(Reg16::DX) = num % iv;
+
+                            reg(Reg32::EIP)++;
+                            cyclesExecuted(isReg ? 165 : 171 + 4 + cycles); // - 184/190
+                        }
                     }
                     break;
                 }
