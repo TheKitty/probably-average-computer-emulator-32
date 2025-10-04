@@ -18,6 +18,10 @@ Chipset::Chipset(System &sys) : sys(sys)
     for(auto &dev : dma.requestedDev)
         dev = nullptr;
 
+    // 0 would be invalid for these
+    cmosRam[0x07] = 1; // day of month
+    cmosRam[0x08] = 1; // month
+
     cmosRam[0x10] = 0x44; // floppy drive type
 }
 
