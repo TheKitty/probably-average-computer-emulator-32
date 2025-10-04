@@ -4276,7 +4276,12 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto off = static_cast<int8_t>(readMem8(addr + 1));
 
-            uint16_t count = --reg(Reg16::CX);
+            uint32_t count;
+
+            if(addressSize32)
+                count = --reg(Reg32::ECX);
+            else
+                count = --reg(Reg16::CX);
 
             if(count == 0 || (flags & Flag_Z))
             {
@@ -4295,7 +4300,12 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto off = static_cast<int8_t>(readMem8(addr + 1));
 
-            uint16_t count = --reg(Reg16::CX);
+            uint32_t count;
+
+            if(addressSize32)
+                count = --reg(Reg32::ECX);
+            else
+                count = --reg(Reg16::CX);
 
             if(count == 0 || !(flags & Flag_Z))
             {
@@ -4314,7 +4324,12 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto off = static_cast<int8_t>(readMem8(addr + 1));
 
-            uint16_t count = --reg(Reg16::CX);
+            uint32_t count;
+
+            if(addressSize32)
+                count = --reg(Reg32::ECX);
+            else
+                count = --reg(Reg16::CX);
 
             if(count == 0)
             {
