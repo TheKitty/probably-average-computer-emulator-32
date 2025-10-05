@@ -457,7 +457,7 @@ static T RAM_FUNC(doSubWithBorrow)(T dest, T src, uint32_t &flags)
     flags = (flags & ~(Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_O))
           | (carry ? Flag_C : 0) 
           | (parity(res) ? Flag_P : 0)
-          | ((res & 0xF) > (dest & 0xF) - c ? Flag_A : 0)
+          | (int(res & 0xF) > int(dest & 0xF) - c ? Flag_A : 0)
           | (res == 0 ? Flag_Z : 0)
           | (res & signBit<T>() ? Flag_S : 0)
           | (overflow ? Flag_O : 0);
