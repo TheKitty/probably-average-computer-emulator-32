@@ -1371,6 +1371,11 @@ void RAM_FUNC(CPU::executeInstruction)()
                     break;
                 }
 
+                case 0xB2: // LSS
+                    loadFarPointer(addr + 1, Reg16::SS, operandSize32);
+                    reg(Reg32::EIP)++;
+                    break;
+
                 case 0xB3: // BTR
                 {
                     auto modRM = readMem8(addr + 2);
