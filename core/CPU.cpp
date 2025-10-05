@@ -2229,6 +2229,44 @@ void RAM_FUNC(CPU::executeInstruction)()
             break;
         }
 
+        case 0x62: // BOUND
+        {
+            auto modRM = readMem8(addr + 1);
+            auto r = (modRM >> 3) & 0x7;
+
+            // FIXME: need to track the original IP
+            auto inIP = reg(Reg32::EIP) - 1;
+            if(operandSizeOverride)
+                inIP--;
+            
+            int cycles;
+            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr);
+
+            int32_t index, lower, upper;
+
+            if(operandSize32)
+            {
+                index = static_cast<int32_t>(reg(static_cast<Reg32>(r)));
+                lower = static_cast<int32_t>(readMem32(offset, segment));
+                upper = static_cast<int32_t>(readMem32(offset + 4, segment));
+            }
+            else
+            {
+                index = static_cast<int16_t>(reg(static_cast<Reg16>(r)));
+                lower = static_cast<int16_t>(readMem16(offset, segment));
+                upper = static_cast<int16_t>(readMem16(offset + 2, segment));
+            }
+
+            if(index < lower || index > upper)
+            {
+                reg(Reg32::EIP) = inIP;
+                serviceInterrupt(0x5); // BR
+            }
+            else
+                reg(Reg32::EIP)++;
+            break;
+        }
+
         case 0x68: // PUSH imm16/32
         {
             uint32_t imm;
