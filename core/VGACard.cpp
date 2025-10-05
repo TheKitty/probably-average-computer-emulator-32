@@ -73,7 +73,32 @@ void VGACard::drawScanline(int line, uint8_t *output)
     }
     else if(gfxMode & (1 << 6)) // 256 col
     {
-        outputPixel(63, 0, 0);
+        int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
+        int offset = crtcRegs[0x13];
+        int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
+
+        auto ptr0 = plane0 + startAddr + offset * 8 * (line / charHeight);
+
+        for(int i = 0; i < outputW / 4; i++)
+        {
+            uint8_t byte0 = (attribPlaneEnable & (1 << 0)) ? ptr0[0x00000] : 0;
+            uint8_t byte1 = (attribPlaneEnable & (1 << 1)) ? ptr0[0x10000] : 0;
+            uint8_t byte2 = (attribPlaneEnable & (1 << 2)) ? ptr0[0x20000] : 0;
+            uint8_t byte3 = (attribPlaneEnable & (1 << 3)) ? ptr0[0x30000] : 0;
+            ptr0 += 4;
+
+            auto pal256 = dacPalette + byte0 * 3;
+            outputPixel(pal256[0], pal256[1], pal256[2]);
+
+            pal256 = dacPalette + byte1 * 3;
+            outputPixel(pal256[0], pal256[1], pal256[2]);
+
+            pal256 = dacPalette + byte2 * 3;
+            outputPixel(pal256[0], pal256[1], pal256[2]);
+
+            pal256 = dacPalette + byte3 * 3;
+            outputPixel(pal256[0], pal256[1], pal256[2]);
+        }
     }
     else if(gfxMode & (1 << 4)) // interleaved
     {
@@ -364,9 +389,15 @@ void VGACard::updateOutputResolution()
     int charWidth = seqClockMode & 1 ? 8 : 9;
     int hDispChars = crtcRegs[1] + 1;
     int vDisp = (crtcRegs[0x12] | (crtcRegs[0x7] & (1 << 1)) << 7 | (crtcRegs[0x7] & (1 << 6)) << 3) + 1;
+    bool is8Bit = attribMode & (1 << 6);
 
     outputW = charWidth * hDispChars;
     outputH = vDisp;
+
+    // 256 colour mode has half width
+    if(is8Bit)
+        outputW /= 2;
+
     printf("VGA res %ix%i\n", outputW, outputH);
 }
 
@@ -407,6 +438,7 @@ uint8_t VGACard::readMem(uint32_t addr)
 void VGACard::writeMem(uint32_t addr, uint8_t data)
 {
     bool chain = gfxMisc & (1 << 1);
+    bool chain4 = seqMemMode & (1 << 3);
     int map = (gfxMisc >> 2) & 3;
     bool oddEven = gfxMode & (1 << 4);
     int writeMode = gfxMode & 3;
@@ -419,8 +451,10 @@ void VGACard::writeMem(uint32_t addr, uint8_t data)
 
     auto mappedAddr = planeAddr;
 
-    // remap low bit for chaining
-    if(chain && map == 0)
+    // remap low bits for chaining
+    if(chain4)
+        mappedAddr = (mappedAddr & ~3);
+    else if(chain && map == 0)
         mappedAddr = (mappedAddr & ~1) | ((addr >> 16) & 1);
     else if(chain)
         mappedAddr = (mappedAddr & ~1);
@@ -442,9 +476,13 @@ void VGACard::writeMem(uint32_t addr, uint8_t data)
         if(!(seqMapMask & (1 << i)))
             continue;
 
-        // odd/even selects bank based on (original) low bit
+        // odd/even selects plane based on (original) low bit
         // 0/1 and 2/3 should have the same masks in this case
         if(oddEven && (i & 1) != (planeAddr & 1))
+            continue;
+
+        // chain4 uses the low two bits to select plane
+        if(chain4 && i != (planeAddr & 3))
             continue;
 
         uint8_t planeData = data;
