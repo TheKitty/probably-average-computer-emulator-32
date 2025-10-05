@@ -3125,12 +3125,22 @@ void RAM_FUNC(CPU::executeInstruction)()
             break;
         }
 
-        case 0x98: // CBW
+        case 0x98: // CBW/CWDE
         {
-            if(reg(Reg8::AL) & 0x80)
-                reg(Reg8::AH) = 0xFF;
-            else
-                reg(Reg8::AH) = 0;
+            if(operandSize32) // CWDE
+            {
+                if(reg(Reg16::AX) & 0x8000)
+                    reg(Reg32::EAX) |= 0xFFFF0000;
+                else
+                    reg(Reg32::EAX) &= 0xFFFF;
+            }
+            else // CWBW
+            {
+                if(reg(Reg8::AL) & 0x80)
+                    reg(Reg8::AH) = 0xFF;
+                else
+                    reg(Reg8::AH) = 0;
+            }
 
             cyclesExecuted(2);
             break;
