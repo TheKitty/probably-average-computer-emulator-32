@@ -3061,6 +3061,14 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             auto destReg = static_cast<Reg16>(r + static_cast<int>(Reg16::ES));
 
+            // loading CS is invalid
+            if(destReg == Reg16::CS)
+            {
+                reg(Reg32::EIP)--;
+                serviceInterrupt(0x6); // UD
+                break;
+            }
+
             setSegmentReg(destReg, readRM16(modRM, cycles, addr));
 
             reg(Reg32::EIP)++;
