@@ -6202,7 +6202,7 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
 
         if(!(newCSFlags & SD_DirConform) && newCSDPL < cpl)
         {
-            if(flags & Flag_VM)
+            if(flags & Flag_VM) // from virtual-8006
             {
                 // clear VM early
                 flags &= ~Flag_VM;
@@ -6212,6 +6212,11 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
 
                 // restore SS:ESP from TSS
                 auto [newSP, newSS] = getTSSStackPointer(newCSDPL);
+
+                // avoid faults in setSegmentReg
+                // FIXME: faults here should be TS
+                // FIXME: ... and actually handled...
+                cpl = selector & 3;
 
                 setSegmentReg(Reg16::SS, newSS);
                 reg(Reg32::ESP) = newSP;
@@ -6244,13 +6249,16 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
                 if(!trapGate)
                     clearFlags |= Flag_I;
             }
-            else
+            else // inter-privilege
             {
                 auto tmpSS = reg(Reg16::SS);
                 auto tmpSP = reg(Reg32::ESP);
 
                 // restore SS:ESP from TSS
                 auto [newSP, newSS] = getTSSStackPointer(newCSDPL);
+
+                // same as above
+                cpl = newCSDPL;
 
                 setSegmentReg(Reg16::SS, newSS);
                 reg(Reg32::ESP) = newSP;
