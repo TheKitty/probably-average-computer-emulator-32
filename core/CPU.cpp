@@ -1152,8 +1152,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                     reg(Reg32::EIP)++;
                     break;
                 case 0xA1: // POP FS
-                    setSegmentReg(Reg16::FS, pop(operandSize32));
-                    reg(Reg32::EIP)++;
+                    if(setSegmentReg(Reg16::FS, pop(operandSize32)))
+                        reg(Reg32::EIP)++;
                     break;
 
                 case 0xA3: // BT
@@ -1242,8 +1242,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                     reg(Reg32::EIP)++;
                     break;
                 case 0xA9: // POP GS
-                    setSegmentReg(Reg16::GS, pop(operandSize32));
-                    reg(Reg32::EIP)++;
+                    if(setSegmentReg(Reg16::GS, pop(operandSize32)))
+                        reg(Reg32::EIP)++;
                     break;
 
                 case 0xAB: // BTS
@@ -3063,10 +3063,11 @@ void RAM_FUNC(CPU::executeInstruction)()
                 break;
             }
 
-            setSegmentReg(destReg, readRM16(modRM, cycles, addr));
-
-            reg(Reg32::EIP)++;
-            cyclesExecuted(cycles);
+            if(setSegmentReg(destReg, readRM16(modRM, cycles, addr)))
+            {
+                reg(Reg32::EIP)++;
+                cyclesExecuted(cycles);
+            }
             break;
         }
 
@@ -5721,19 +5722,100 @@ CPU::SegmentDescriptor CPU::loadSegmentDescriptor(uint16_t selector)
     return desc;
 }
 
-void CPU::setSegmentReg(Reg16 r, uint16_t value)
+bool CPU::setSegmentReg(Reg16 r, uint16_t value)
 {
-    reg(r) = value;
-
     if(isProtectedMode() && !(flags & Flag_VM))
     {
-        getCachedSegmentDescriptor(r) = loadSegmentDescriptor(value);
+        // check limit
+        // TODO: move this down to loadSegmentDescriptor?
+        // (would require it to be able to fail, and a few callers don't want the faults)
+        auto limit = (value & 4)/*local*/ ? ldtLimit : gdtLimit;
+
+        // effectively (selector >> 3) * 8 + 7
+        if((value | 7) > limit)
+        {
+            // bottom 3 bits don't match but clearing the last two gets us the right thing
+            fault(Fault::GP, value & ~3);
+            return false;
+        }
+
+        if(value < 4) // NULL selector
+        {
+            // not valid for CS/SS
+            if(r == Reg16::CS || r == Reg16::SS)
+            {
+                fault(Fault::GP, value & ~3);
+                return false;
+            }
+
+            getCachedSegmentDescriptor(r) = {};
+        }
+        else
+        {
+            auto desc = loadSegmentDescriptor(value);
+
+            // not present
+            if(!(desc.flags & SD_Present))
+            {
+                if(r == Reg16::SS)
+                    fault(Fault::SS, value & ~3);
+                else
+                    fault(Fault::NP, value & ~3);
+                return false;
+            }
+
+            // check data/code
+            // (CS could be a gate but we'll handle that in the call op)
+            if(!(desc.flags & SD_Type))
+            {
+                fault(Fault::GP, value & ~3);
+                return false;
+            }
+
+            unsigned rpl = value & 3;
+            unsigned dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
+
+            if(r == Reg16::CS)
+            {
+                // TODO
+            }
+            else if(r == Reg16::SS)
+            {
+                // check privileges
+                if(rpl != cpl || dpl != cpl)
+                {
+                    fault(Fault::GP, value & ~3);
+                    return false;
+                }
+
+                // needs to be writable data segment
+                if((desc.flags & SD_Executable) || !(desc.flags & SD_ReadWrite))
+                {
+                    fault(Fault::GP, value & ~3);
+                    return false;
+                }
+            }
+            else // DS, ES, FS, GS
+            {
+                // check privileges (data or non-conforming code)
+                if((!(desc.flags & SD_Executable) || !(desc.flags & SD_DirConform)) && rpl > dpl && cpl > dpl)
+                {
+                    fault(Fault::GP, value & ~3);
+                    return false;
+                }
+            }
+
+            getCachedSegmentDescriptor(r) = desc;
+        }
+        reg(r) = value;
 
         if(r == Reg16::CS)
             cpl = value & 3;
     }
     else
     {
+        reg(r) = value;
+
         auto &desc = getCachedSegmentDescriptor(r);
         desc.base = value * 16;
         if(r == Reg16::CS)
@@ -5742,6 +5824,8 @@ void CPU::setSegmentReg(Reg16 r, uint16_t value)
             desc.limit = 0xFFFF;
         }
     }
+
+    return true;
 }
 
 std::tuple<uint32_t, uint16_t> CPU::getTSSStackPointer(int dpl)
