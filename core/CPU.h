@@ -91,6 +91,23 @@ public:
     void executeInstruction();
 
 private:
+    enum class Fault
+    {
+        DE = 0x00, // Division Error
+
+        BR = 0x05, // Bound Range
+        UD = 0x06, // invalid opcode
+        NM = 0x07, // coprocessor not available
+
+        TS = 0x0A, // invalid TSS
+        NP = 0x0B, // segment Not Present
+        SS = 0x0C, // Stack Segment
+        GP = 0x0D, // General Protection
+        PF = 0x0E, // Page Fault
+
+        MF = 0x10, // Math Fault
+    };
+
     struct SegmentDescriptor
     {
         uint32_t flags;
@@ -158,6 +175,9 @@ private:
 
     void serviceInterrupt(uint8_t vector);
 
+    void fault(Fault fault);
+    void fault(Fault fault, uint32_t code);
+
     // internal state
 
     // registers
@@ -178,6 +198,8 @@ private:
 
     Reg16 segmentOverride;
     bool addressSizeOverride;
+
+    uint32_t faultIP;
 
     // RAM
     System &sys;

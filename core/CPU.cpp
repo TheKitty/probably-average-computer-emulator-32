@@ -577,6 +577,7 @@ void CPU::updateFlags(uint32_t newFlags, uint32_t mask, bool is32)
 
 void RAM_FUNC(CPU::executeInstruction)()
 {
+    faultIP = reg(Reg32::EIP);
     auto addr = getSegmentOffset(Reg16::CS) + (reg(Reg32::EIP)++);
 
     auto opcode = readMem8(addr);
@@ -1738,9 +1739,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 case 0xFF: // UD0
                 {
                     // would be the default case if we weren't missing ops all over the place...
-                    // UD
-                    reg(Reg32::EIP)--; // back to start of op (FIXME: prefixes?)
-                    serviceInterrupt(0x6);
+                    fault(Fault::UD);
                     break;
                 }
 
@@ -2234,11 +2233,6 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = readMem8(addr + 1);
             auto r = (modRM >> 3) & 0x7;
 
-            // FIXME: need to track the original IP
-            auto inIP = reg(Reg32::EIP) - 1;
-            if(operandSizeOverride)
-                inIP--;
-            
             int cycles;
             auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr);
 
@@ -2258,10 +2252,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
 
             if(index < lower || index > upper)
-            {
-                reg(Reg32::EIP) = inIP;
-                serviceInterrupt(0x5); // BR
-            }
+                fault(Fault::BR);
             else
                 reg(Reg32::EIP)++;
             break;
@@ -3068,8 +3059,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             // loading CS is invalid
             if(destReg == Reg16::CS)
             {
-                reg(Reg32::EIP)--;
-                serviceInterrupt(0x6); // UD
+                fault(Fault::UD);
                 break;
             }
 
@@ -4646,11 +4636,7 @@ void RAM_FUNC(CPU::executeInstruction)()
         case 0xDF:
         {
             if(reg(Reg32::CR0) & (1 << 2)/*EM*/)
-            {
-                // NM
-                reg(Reg32::EIP)--;
-                serviceInterrupt(0x7);
-            }
+                fault(Fault::NM);
             else
             {
                 auto modRM = readMem8(addr + 1);
@@ -4896,12 +4882,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 if(cpl != 0)
                 {
-                    // GP
-                    // TODO: we need much more general fault handling
-                    reg(Reg32::EIP)--;
-                    serviceInterrupt(0xD);
-                    // might have changed the stack address size
-                    doPush(0, true, isStackAddressSize32()); // error code
+                    fault(Fault::GP, 0);
                     break;
                 }
             }
@@ -4994,11 +4975,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     auto num = reg(Reg16::AX);
 
                     if(v == 0 || num / v > 0xFF)
-                    {
-                        // fault
-                        reg(Reg32::EIP)++;
-                        serviceInterrupt(0);
-                    }
+                        fault(Fault::DE);
                     else
                     {
                         reg(Reg8::AL) = num / v;
@@ -5017,11 +4994,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     int res = v == 0 ? 0xFF : num / iv;
 
                     if(res > 0x7F || res < -0x80)
-                    {
-                        // fault
-                        reg(Reg32::EIP)++;
-                        serviceInterrupt(0);
-                    }
+                        fault(Fault::DE);
                     else
                     {
                         reg(Reg8::AL) = res;
@@ -5170,11 +5143,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         uint64_t num = reg(Reg32::EAX) | uint64_t(reg(Reg32::EDX)) << 32;
 
                         if(v == 0 || num / v > 0xFFFFFFFF)
-                        {
-                            // fault
-                            reg(Reg32::EIP)++;
-                            serviceInterrupt(0);
-                        }
+                            fault(Fault::DE);
                         else
                         {
                             reg(Reg32::EAX) = num / v;
@@ -5189,11 +5158,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         uint32_t num = reg(Reg16::AX) | reg(Reg16::DX) << 16;
 
                         if(v == 0 || num / v > 0xFFFF)
-                        {
-                            // fault
-                            reg(Reg32::EIP)++;
-                            serviceInterrupt(0);
-                        }
+                            fault(Fault::DE);
                         else
                         {
                             reg(Reg16::AX) = num / v;
@@ -5215,11 +5180,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         int64_t res = v == 0 ? 0xFFFFFFFF : num / iv;
 
                         if(res > 0x7FFFFFFF || res < -0x80000000ll)
-                        {
-                            // fault
-                            reg(Reg32::EIP)++;
-                            serviceInterrupt(0);
-                        }
+                            fault(Fault::DE);
                         else
                         {
                             reg(Reg32::EAX) = res;
@@ -5237,11 +5198,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         int res = v == 0 ? 0xFFFF : num / iv;
 
                         if(res > 0x7FFF || res < -0x8000)
-                        {
-                            // fault
-                            reg(Reg32::EIP)++;
-                            serviceInterrupt(0);
-                        }
+                            fault(Fault::DE);
                         else
                         {
                             reg(Reg16::AX) = res;
@@ -5278,11 +5235,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 int iopl = (flags & Flag_IOPL) >> 12;
                 if(iopl < cpl)
                 {
-                    // GP
-                    // TODO: we need much more general fault handling
-                    reg(Reg32::EIP)--;
-                    serviceInterrupt(0xD);
-                    push(0, true); // error code
+                    fault(Fault::GP, 0);
                     break;
                 }
             }
@@ -5298,11 +5251,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 int iopl = (flags & Flag_IOPL) >> 12;
                 if(iopl < cpl)
                 {
-                    // GP
-                    // TODO: we need much more general fault handling
-                    reg(Reg32::EIP)--;
-                    serviceInterrupt(0xD);
-                    push(0, true); // error code
+                    fault(Fault::GP, 0);
                     break;
                 }
             }
@@ -6286,4 +6235,17 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
     cyclesExecuted(51 + 5 * 4); // timing for INT
 
     halted = false;
+}
+
+void CPU::fault(Fault fault)
+{
+    reg(Reg32::EIP) = faultIP; // return address should be at the start of the instruction
+    serviceInterrupt(static_cast<int>(fault));
+}
+
+void CPU::fault(Fault fault, uint32_t code)
+{
+    this->fault(fault);
+    // might have changed the stack address size
+    doPush(code, true, isStackAddressSize32());
 }
