@@ -14,6 +14,7 @@ enum ATAStatus
 
 enum class ATACommand
 {
+    DEVICE_RESET           = 0x08,
     READ_SECTOR            = 0x20,
     WRITE_SECTOR           = 0x30,
     PACKET                 = 0xA0,
@@ -155,6 +156,23 @@ void ATAController::write(uint16_t addr, uint8_t data)
 
             switch(static_cast<ATACommand>(data))
             {
+                case ATACommand::DEVICE_RESET:
+                    if(io && io->isATAPI(dev))
+                    {
+                        // error = 1; // passed (or not present)
+                        // signature
+                        sectorCount = 1;
+                        lbaLowSector = 1;
+                        lbaMidCylinderLow = 0x14;
+                        lbaHighCylinderHigh = 0xEB;
+                        // TODO: should set these in response to a (non-packet) IDENTIFY too
+
+                        status &= ~Status_DRDY;
+                    }
+                    else
+                        status |= Status_ERR;
+                    break;
+
                 case ATACommand::READ_SECTOR:
                 {
                     bool isLBA = (deviceHead >> 6) & 1;
