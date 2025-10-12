@@ -23,7 +23,14 @@ enum class ATACommand
     SET_FEATURES           = 0xEF,
 };
 
-ATAController::ATAController(System &sys)
+enum class SCSICommand
+{
+    TEST_UNIT_READY = 0x00,
+    INQUIRY         = 0x12,
+    READ_10         = 0x28,
+};
+
+ATAController::ATAController(System &sys) : sys(sys)
 {
     // 1F0-1F7 (primary, 170-177 for secondary)
     sys.addIODevice(0x3F8, 0x1F0, 0, this);
@@ -98,12 +105,20 @@ uint16_t ATAController::read16(uint16_t addr)
                     }
                     else
                     {
+                        if(pioReadLen != 512) // atapi
+                        {
+                            sectorCount = 1 << 0  // command
+                                        | 1 << 1; // to host
+                        }
+
                         pioReadLen = 0;
                         pioReadSectors = 0;
 
                         // clear data request, set ready
                         status |= Status_DRDY;
                         status &= ~Status_DRQ;
+
+                        flagIRQ();
                     }
                 }
 
@@ -123,11 +138,6 @@ void ATAController::write(uint16_t addr, uint8_t data)
 {
     switch(addr & ~(1 << 7))
     {
-        /*
-        case 0x170: // data
-        
-        case 0x376: // device control
-        */
         case 0x171: // features
             features = data;
             break;
@@ -165,6 +175,7 @@ void ATAController::write(uint16_t addr, uint8_t data)
                         lbaLowSector = 1;
                         lbaMidCylinderLow = 0x14;
                         lbaHighCylinderHigh = 0xEB;
+                        deviceHead &= (1 << 4); // don't change DEV bit
                         // TODO: should set these in response to a (non-packet) IDENTIFY too
 
                         status &= ~Status_DRDY;
@@ -242,8 +253,22 @@ void ATAController::write(uint16_t addr, uint8_t data)
                 // ATAPI
                 case ATACommand::PACKET:
                     if(io && io->isATAPI(dev))
-                        printf("ATAPI packet len %04X\n", lbaMidCylinderLow | lbaHighCylinderHigh << 8);
-                    status |= Status_ERR;
+                    {
+                        pioWriteLen = 12;
+                        pioWriteSectors = 0;
+                        bufOffset = 0;
+
+                        status &= ~Status_DRDY;
+                        status |= Status_DRQ;
+
+                        // for packet commands, this is the interrupt reason
+                        sectorCount = (1 << 0)  // command
+                                    | (0 << 1); // to device
+
+                        flagIRQ();
+                    }
+                    else
+                        status |= Status_ERR;
                     break;
 
                 case ATACommand::IDENTIFY_PACKET_DEVICE:
@@ -284,6 +309,10 @@ void ATAController::write(uint16_t addr, uint8_t data)
             }
             break;
         }
+
+        case 0x376: // device control
+            deviceControl = data;
+            break;
         default:
             printf("ATA W %04X = %02X\n", addr, data);
     }
@@ -304,9 +333,14 @@ void ATAController::write16(uint16_t addr, uint16_t data)
                 if(bufOffset == pioWriteLen)
                 {
                     int dev = (deviceHead >> 4) & 1;
+                    bool isATAPICommand = pioWriteLen == 12;
 
-                    if(!io || !io->write(dev, sectorBuf, curLBA))
-                        status |= Status_ERR;
+                    // write to disk if this was a sector write
+                    if(!isATAPICommand)
+                    {
+                        if(!io || !io->write(dev, sectorBuf, curLBA))
+                            status |= Status_ERR;
+                    }
 
                     if(pioWriteSectors > 1)
                     {
@@ -324,6 +358,10 @@ void ATAController::write16(uint16_t addr, uint16_t data)
                         status |= Status_DRDY;
                         status &= ~Status_DRQ;
                     }
+
+                    // handle the command if needed
+                    if(isATAPICommand)
+                        doATAPICommand(dev);
                 }
             }
 
@@ -443,4 +481,61 @@ void ATAController::fillIdentity(int device)
     wordBuf[80] = ((1 << 4) - 1) << 1; // ATA-4 (earliest ver with ATAPI)
 
     // 82-84 for command sets
+}
+
+void ATAController::doATAPICommand(int device)
+{
+    switch(static_cast<SCSICommand>(sectorBuf[0]))
+    {
+        case SCSICommand::INQUIRY:
+        {
+            pioReadLen = lbaMidCylinderLow | lbaHighCylinderHigh << 8; // requested len
+            pioReadSectors = 0;
+            bufOffset = 0;
+
+            // fill in some data
+            memset(sectorBuf, 0, sizeof(sectorBuf));
+            sectorBuf[0] = 0 << 5 // qualifier (is connected)
+                         | 0x05; // CD/DVD
+            
+            sectorBuf[1] = 1 << 7; // removable
+
+            sectorBuf[4] = 31; // additional length
+
+            // figuring out that this had to start with NEC for the driver I was using was a huge pain
+            const char *vendor   = "NECkPain"; // 8
+            const char *product  = "Something       "; // 16
+            const char *revision = "1.0 "; // 4
+
+            memcpy(sectorBuf + 8, vendor, 8);
+            memcpy(sectorBuf + 16, product, 16);
+            memcpy(sectorBuf + 32, revision, 4);
+
+            status &= ~Status_DRDY;
+            status |= Status_DRQ;
+
+            sectorCount = (0 << 0)  // data
+                        | (1 << 1); // to host
+
+            flagIRQ();
+            break;
+        }
+
+        default:
+            printf("ATAPI command %02X\n", sectorBuf[0]);
+
+            // error = 1 << 2/*ABRT*/;
+            status |= Status_ERR; // ATAPI CHK bit
+
+            sectorCount = (1 << 0)  // command
+                        | (1 << 1); // to host
+
+            flagIRQ();
+    }
+}
+
+void ATAController::flagIRQ()
+{
+    if(!(deviceControl & (1 << 1)))
+        sys.getChipset().flagPICInterrupt(14); // 15 for secondary
 }

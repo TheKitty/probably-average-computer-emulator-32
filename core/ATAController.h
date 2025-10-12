@@ -42,6 +42,12 @@ private:
 
     void fillIdentity(int device);
 
+    void doATAPICommand(int device);
+
+    void flagIRQ();
+
+    System &sys;
+
     uint8_t features;
     uint8_t sectorCount;
     uint8_t lbaLowSector; // LBA low or sector
@@ -50,6 +56,8 @@ private:
     uint8_t deviceHead; // device/head
 
     uint8_t status = 0;
+
+    uint8_t deviceControl;
 
     uint8_t sectorBuf[512];
     int bufOffset = 0;
