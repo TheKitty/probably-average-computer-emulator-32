@@ -1373,8 +1373,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 }
 
                 case 0xB2: // LSS
-                    loadFarPointer(addr + 1, Reg16::SS, operandSize32);
                     reg(Reg32::EIP)++;
+                    loadFarPointer(addr + 1, Reg16::SS, operandSize32);
                     break;
 
                 case 0xB3: // BTR
@@ -1418,12 +1418,12 @@ void RAM_FUNC(CPU::executeInstruction)()
                 }
 
                 case 0xB4: // LFS
-                    loadFarPointer(addr + 1, Reg16::FS, operandSize32);
                     reg(Reg32::EIP)++;
+                    loadFarPointer(addr + 1, Reg16::FS, operandSize32);
                     break;
                 case 0xB5: // LGS
-                    loadFarPointer(addr + 1, Reg16::GS, operandSize32);
                     reg(Reg32::EIP)++;
+                    loadFarPointer(addr + 1, Reg16::GS, operandSize32);
                     break;
 
                 case 0xB6: // MOVZX 8 -> 16/32
@@ -6223,13 +6223,17 @@ void CPU::loadFarPointer(uint32_t addr, Reg16 segmentReg, bool operandSize32)
 
     if(operandSize32)
     {
+        if(!setSegmentReg(segmentReg, readMem16(offset + 4, segment)))
+            return;
+
         reg(static_cast<Reg32>(r)) = readMem32(offset, segment);
-        setSegmentReg(segmentReg, readMem16(offset + 4, segment));
     }
     else
     {
+        if(!setSegmentReg(segmentReg, readMem16(offset + 2, segment)))
+            return;
+
         reg(static_cast<Reg16>(r)) = readMem16(offset, segment);
-        setSegmentReg(segmentReg, readMem16(offset + 2, segment));
     }
     
     reg(Reg32::EIP) += 1;
