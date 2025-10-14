@@ -701,6 +701,25 @@ void RAM_FUNC(CPU::executeInstruction)()
         return ret;
     };
 
+    // sometimes we need to check values (segments) before affecting SP
+    auto peek = [this, stackAddrSize32](bool is32, int offset)
+    {
+        uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
+        uint32_t ret;
+
+        sp += offset * (is32 ? 4 : 2);
+
+        if(!stackAddrSize32)
+            sp &= 0xFFFF;
+        
+        if(is32)
+            ret = readMem32(sp, getSegmentOffset(Reg16::SS));
+        else
+            ret = readMem16(sp, getSegmentOffset(Reg16::SS));
+
+        return ret;
+    };
+
     auto getCondValue = [this](int cond)
     {
         bool condVal;
