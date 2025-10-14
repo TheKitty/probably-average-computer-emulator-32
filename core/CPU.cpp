@@ -1732,7 +1732,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     auto r = static_cast<Reg32>(opcode2 & 3);
                     reg(r) = __builtin_bswap32(reg(r));
-                    reg(Reg32::EIP) += 2;
+                    reg(Reg32::EIP)++;
                     break;
                 }
 
