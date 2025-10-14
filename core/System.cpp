@@ -973,6 +973,11 @@ void Chipset::PIC::write(int index, uint8_t data)
                     }
                     break;
                 }
+
+                case 3: // specific EOI
+                    service &= ~(1 << (data & 7));
+                    break;
+
                 default:
                     printf("PIC OCW2 %02X\n", data);
             }
