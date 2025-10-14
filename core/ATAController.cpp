@@ -589,7 +589,7 @@ void ATAController::doATAPICommand(int device)
 
             auto limit = lbaMidCylinderLow | lbaHighCylinderHigh << 8;
 
-            assert(limit == numSectors * 2048);
+            assert(limit == numSectors * 2048 || limit == 2048);
 
             if(io && io->read(device, sectorBuf, lba))
             {
@@ -598,12 +598,13 @@ void ATAController::doATAPICommand(int device)
                 bufOffset = 0;
                 curLBA = lba;
 
-
                 status &= ~Status_DRDY;
                 status |= Status_DRQ;
 
                 sectorCount = (0 << 0)  // data
                             | (1 << 1); // to host
+
+                flagIRQ();
             }
             else
             {
