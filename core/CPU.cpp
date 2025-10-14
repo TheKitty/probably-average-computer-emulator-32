@@ -6335,19 +6335,168 @@ void CPU::doPush(uint32_t val, bool op32, bool addr32)
 
 void CPU::farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operandSize32, bool stackAddress32)
 {
-    // push CS
-    doPush(reg(Reg16::CS), operandSize32, stackAddress32);
-
-    // push IP
-    doPush(retAddr, operandSize32, stackAddress32);
-
-    // go to new CS:IP
-    setSegmentReg(Reg16::CS, newCS);
-
     if(!operandSize32)
         newIP &= 0xFFFF;
-    
-    reg(Reg32::EIP) = newIP;
+
+    if(isProtectedMode() && !(flags & Flag_VM))
+    {
+        int rpl = newCS & 3;
+
+        auto newDesc = loadSegmentDescriptor(newCS); // wrong format for a gate descriptor
+
+        if(!(newDesc.flags & SD_Present))
+        {
+            // NP
+            fault(Fault::NP, newCS & ~3);
+            return;
+        }
+
+        if(newDesc.flags & SD_Type)
+        {
+            // code/data segment
+            assert(newDesc.flags & SD_Executable); // code
+
+            int dpl = (newDesc.flags & SD_PrivilegeLevel) >> 21;
+
+            if(newDesc.flags & SD_DirConform) // conforming code segment
+            {
+                assert(dpl <= cpl); // GP
+            }
+            else // non-conforming code segment
+            {
+                assert(rpl <= cpl); // GP
+                assert(dpl == cpl); // GP
+            }
+
+            // push CS
+            doPush(reg(Reg16::CS), operandSize32, stackAddress32);
+
+            // push IP
+            doPush(retAddr, operandSize32, stackAddress32);
+
+            newCS = (newCS & ~3) | cpl; // RPL = CPL
+
+            if(!setSegmentReg(Reg16::CS, newCS))
+            {
+                printf("call cs fault!\n");
+                exit(1);
+            }
+            reg(Reg32::EIP) = newIP;
+        }
+        else 
+        {
+            switch(newDesc.flags & SD_SysType)
+            {
+                case SD_SysTypeCallGate16:
+                case SD_SysTypeCallGate32:
+                {
+                    bool is32 = (newDesc.flags & SD_SysType) == SD_SysTypeCallGate32;
+
+                    int dpl = (newDesc.flags & SD_PrivilegeLevel) >> 21;
+                    assert(dpl >= cpl); // GP
+                    assert(rpl <= dpl); // GP
+
+                    auto codeSegDesc = loadSegmentDescriptor(newDesc.base & 0xFFFF);
+
+                    auto codeSegOffset = newDesc.limit;
+
+                    if(is32) // reconstruct from wrong layout (we parsed it as a code segment, not a gate...)
+                        codeSegOffset |=  (newDesc.flags & 0xF000) << 8 | (newDesc.base & 0xFF000000);
+                    else
+                        codeSegOffset &= 0xFFFF;
+
+                    int codeSegDPL = (codeSegDesc.flags & SD_PrivilegeLevel) >> 21;
+
+                    assert((codeSegDesc.flags & SD_Type) && (codeSegDesc.flags & SD_Executable)); // code segment (GP)
+                    assert(codeSegDPL <= cpl); // GP
+                    assert(codeSegDesc.flags & SD_Present); // NP
+
+                    if(!(codeSegDesc.flags & SD_DirConform) && codeSegDPL < cpl) // more privilege
+                    {
+                        // get SP from TSS
+                        auto [newSP, newSS] = getTSSStackPointer(codeSegDPL);
+
+                        auto oldSP = reg(Reg32::ESP);
+                        auto oldSS = reg(Reg16::SS);
+                        auto copyAddr = oldSP + getSegmentOffset(Reg16::SS);
+
+                        // set early so PL checks in setSegmentReg work
+                        // FIXME: wrong fault if there is an actual mismatch
+                        cpl = newDesc.base & 3;
+
+                        // setup new stack
+                        if(!setSegmentReg(Reg16::SS, newSS))
+                        {
+                            printf("call gate SS bad!\n");
+                            exit(1);
+                        }
+                        reg(Reg32::ESP) = newSP;
+
+                        // push old stack
+                        doPush(oldSS, is32, stackAddress32);
+                        doPush(oldSP, is32, stackAddress32);
+
+                        // push params
+                        int temp = (newDesc.base >> 16) & 0x1F;
+                        copyAddr -= (temp - 1) * (is32 ? 4 : 2);
+
+                        for(int i = 0; i < temp; i++)
+                        {
+                            auto v = is32 ? readMem32(copyAddr + i * 4) : readMem16(copyAddr + i * 2);
+                            doPush(v, is32, stackAddress32);
+                        }
+
+                        // push CS
+                        doPush(reg(Reg16::CS), is32, stackAddress32);
+
+                        // push IP
+                        doPush(retAddr, is32, stackAddress32);
+
+                        reg(Reg16::CS) = newDesc.base & 0xFFFF;
+                        getCachedSegmentDescriptor(Reg16::CS) = codeSegDesc;
+                        reg(Reg32::EIP) = codeSegOffset;
+                    }
+                    else
+                    {
+                        // push CS
+                        doPush(reg(Reg16::CS), is32, stackAddress32);
+
+                        // push IP
+                        doPush(retAddr, is32, stackAddress32);
+
+                        reg(Reg16::CS) = (newDesc.base & ~3) | cpl;
+                        getCachedSegmentDescriptor(Reg16::CS) = codeSegDesc;
+                        
+                        reg(Reg32::EIP) = codeSegOffset;
+                    }
+
+                    break;
+                }
+                case SD_SysTypeTaskGate:
+                {
+                    printf("call task gate\n");
+                    exit(1);
+                    break;
+                }
+                default:
+                    printf("protected call (sys desc %x)\n", (newDesc.flags & SD_SysType) >> 16);
+                    exit(1);
+            }
+        }
+    }
+    else
+    {
+        // real/virtual 8086 mode
+        // push CS
+        doPush(reg(Reg16::CS), operandSize32, stackAddress32);
+
+        // push IP
+        doPush(retAddr, operandSize32, stackAddress32);
+
+        // set new CS:EIP
+        setSegmentReg(Reg16::CS, newCS);
+        reg(Reg32::EIP) = newIP;
+    }
 }
 
 // LES/LDS/...
