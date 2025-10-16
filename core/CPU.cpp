@@ -885,7 +885,12 @@ void RAM_FUNC(CPU::executeInstruction)()
                         }
                         case 0x2: // LLDT
                         {
-                            assert(isProtectedMode());
+                            // not recognised in real/virtual-8086 mode
+                            if(!isProtectedMode() || (flags & Flag_VM))
+                            {
+                                fault(Fault::UD);
+                                break;
+                            }
 
                             int cycles;
                             auto selector = readRM16(modRM, cycles, addr + 1);
@@ -946,7 +951,12 @@ void RAM_FUNC(CPU::executeInstruction)()
                         case 0x4: // VERR
                         case 0x5: // VERW
                         {
-                            assert(isProtectedMode() && !(flags & Flag_VM));
+                            // not recognised in real/virtual-8086 mode
+                            if(!isProtectedMode() || (flags & Flag_VM))
+                            {
+                                fault(Fault::UD);
+                                break;
+                            }
 
                             int cycles;
                             auto selector = readRM16(modRM, cycles, addr + 1);
