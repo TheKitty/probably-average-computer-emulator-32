@@ -6697,6 +6697,140 @@ void CPU::loadFarPointer(uint32_t addr, Reg16 segmentReg, bool operandSize32)
     reg(Reg32::EIP) += 1;
 }
 
+bool CPU::taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource source)
+{
+    auto tssDesc = loadSegmentDescriptor(selector);
+
+    // check TSS descriptor
+    auto sysType = (tssDesc.flags & SD_SysType);
+
+    // IRET expects the new task to be busy (as we're returning to it)
+    // so flip the bit in the type field
+    if(source == TaskSwitchSource::IntRet)
+        sysType ^= 2 << 16;
+
+    if((tssDesc.flags & SD_Type) || (sysType != SD_SysTypeTSS16 && sysType != SD_SysTypeTSS32))
+    {
+        fault(Fault::GP, selector & ~3);
+        return false;
+    }
+
+    if(!(tssDesc.flags & SD_Present))
+    {
+        fault(Fault::NP, selector & ~3);
+        return false;
+    }
+
+    // switch tasks
+
+    if(source == TaskSwitchSource::IntRet)
+        flags &= ~Flag_NT;
+
+    // save registers to current task
+    auto &curTSSDesc = getCachedSegmentDescriptor(Reg16::TR);
+
+    int curTSSType = (curTSSDesc.flags & SD_SysType);
+
+    assert(!(curTSSDesc.flags & SD_Type));
+    assert(curTSSType == SD_SysTypeBusyTSS16 || curTSSType == SD_SysTypeBusyTSS32); // the current TSS should be busy?
+    
+    if(curTSSType == SD_SysTypeBusyTSS32 || curTSSType == SD_SysTypeTSS32 || sysType == SD_SysTypeTSS32)
+    {
+        printf("task switch 32\n");
+        exit(1);
+    }
+
+    if(curTSSType == SD_SysTypeTSS16 || curTSSType == SD_SysTypeBusyTSS16)
+    {
+        writeMem16(0x0e, curTSSDesc.base, retAddr); // IP
+        writeMem16(0x10, curTSSDesc.base, flags);
+
+        writeMem16(0x12, curTSSDesc.base, reg(Reg16::AX));
+        writeMem16(0x14, curTSSDesc.base, reg(Reg16::CX));
+        writeMem16(0x16, curTSSDesc.base, reg(Reg16::DX));
+        writeMem16(0x18, curTSSDesc.base, reg(Reg16::BX));
+        writeMem16(0x1a, curTSSDesc.base, reg(Reg16::SP));
+        writeMem16(0x1c, curTSSDesc.base, reg(Reg16::BP));
+        writeMem16(0x1e, curTSSDesc.base, reg(Reg16::SI));
+        writeMem16(0x20, curTSSDesc.base, reg(Reg16::DI));
+
+        writeMem16(0x22, curTSSDesc.base, reg(Reg16::ES));
+        writeMem16(0x24, curTSSDesc.base, reg(Reg16::CS));
+        writeMem16(0x26, curTSSDesc.base, reg(Reg16::SS));
+        writeMem16(0x28, curTSSDesc.base, reg(Reg16::DS));
+    }
+
+    // save old TR for later
+    auto oldTR = reg(Reg16::TR);
+
+    // set busy (sys type | 2)
+    if(source != TaskSwitchSource::IntRet)
+    {
+        tssDesc.flags |= 2 << 16; // in the cache too
+        auto addr = (selector >> 3) * 8 + gdtBase;
+        writeMem8(addr + 5, 0, readMem8(addr + 5) | 2);
+    }
+
+    // load new TSS
+    getCachedSegmentDescriptor(Reg16::TR) = tssDesc;
+    reg(Reg16::TR) = selector;
+
+    reg(Reg32::CR0) |= (1 << 3); // TS
+
+    // clear busy on the old task unless this is a call
+    if(source != TaskSwitchSource::Call)
+    {
+        auto addr = (oldTR >> 3) * 8 + gdtBase;
+        writeMem8(addr + 5, 0, readMem8(addr + 5) & ~2);
+    }
+    else // otherwise set the back-link (same offset/size in 16/32bit TSS)
+        writeMem16(0, tssDesc.base, oldTR);
+
+    // load registers from new task
+    if(sysType == SD_SysTypeTSS16)
+    {
+        flags = (flags & 0xFFFF0000) | readMem16(0x10, tssDesc.base);
+
+        reg(Reg16::AX) = readMem16(0x12, tssDesc.base);
+        reg(Reg16::CX) = readMem16(0x14, tssDesc.base);
+        reg(Reg16::DX) = readMem16(0x16, tssDesc.base);
+        reg(Reg16::BX) = readMem16(0x18, tssDesc.base);
+        reg(Reg16::SP) = readMem16(0x1a, tssDesc.base);
+        reg(Reg16::BP) = readMem16(0x1c, tssDesc.base);
+        reg(Reg16::SI) = readMem16(0x1e, tssDesc.base);
+        reg(Reg16::DI) = readMem16(0x20, tssDesc.base);
+
+        reg(Reg32::EIP) = readMem16(0x0e, tssDesc.base);
+
+
+        // load LDT before the segment selectors so local selectors use the correct table
+        if(!setLDT(readMem16(0x2a, tssDesc.base)))
+            return false;
+
+        if(!setSegmentReg(Reg16::ES, readMem16(0x22, tssDesc.base)))
+            return false;
+        if(!setSegmentReg(Reg16::CS, readMem16(0x24, tssDesc.base)))
+            return false;
+        if(!setSegmentReg(Reg16::SS, readMem16(0x26, tssDesc.base)))
+            return false;
+        if(!setSegmentReg(Reg16::DS, readMem16(0x28, tssDesc.base)))
+            return false;
+    }
+
+    // check ip
+    if(reg(Reg32::EIP) > getCachedSegmentDescriptor(Reg16::CS).limit)
+    {
+        fault(Fault::GP, 0);
+        return false;
+    }
+
+    // update NT flag of new task
+    if(source == TaskSwitchSource::Call)
+        flags |= Flag_NT;
+
+    return true;
+}
+
 void CPU::cyclesExecuted(int cycles)
 {
     // stub

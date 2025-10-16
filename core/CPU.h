@@ -108,6 +108,14 @@ private:
         MF = 0x10, // Math Fault
     };
 
+    // op that is causing the task switch
+    enum class TaskSwitchSource
+    {
+        Call,
+        Jump,
+        IntRet,
+    };
+
     struct SegmentDescriptor
     {
         uint32_t flags;
@@ -175,6 +183,8 @@ private:
     void doPush(uint32_t val, bool op32, bool addr32);
     void farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operandSize32, bool stackAddress32);
     void loadFarPointer(uint32_t addr, Reg16 segmentReg, bool operandSize32);
+
+    bool taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource source);
 
     void cyclesExecuted(int cycles);
 
