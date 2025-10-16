@@ -6009,7 +6009,7 @@ bool CPU::isStackAddressSize32()
     return false;
 }
 
-uint8_t RAM_FUNC(CPU::readRM8)(uint8_t modRM, int &cycles, uint32_t addr, int additionalOffset)
+uint8_t RAM_FUNC(CPU::readRM8)(uint8_t modRM, uint32_t addr, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
@@ -6023,7 +6023,7 @@ uint8_t RAM_FUNC(CPU::readRM8)(uint8_t modRM, int &cycles, uint32_t addr, int ad
         return reg(static_cast<Reg8>(rm));
 }
 
-uint16_t RAM_FUNC(CPU::readRM16)(uint8_t modRM, int &cycles, uint32_t addr, int additionalOffset)
+uint16_t RAM_FUNC(CPU::readRM16)(uint8_t modRM, uint32_t addr, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
@@ -6037,7 +6037,7 @@ uint16_t RAM_FUNC(CPU::readRM16)(uint8_t modRM, int &cycles, uint32_t addr, int 
         return reg(static_cast<Reg16>(rm));
 }
 
-uint32_t RAM_FUNC(CPU::readRM32)(uint8_t modRM, int &cycles, uint32_t addr, int additionalOffset)
+uint32_t RAM_FUNC(CPU::readRM32)(uint8_t modRM, uint32_t addr, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
@@ -6051,7 +6051,7 @@ uint32_t RAM_FUNC(CPU::readRM32)(uint8_t modRM, int &cycles, uint32_t addr, int 
         return reg(static_cast<Reg32>(rm));
 }
 
-void RAM_FUNC(CPU::writeRM8)(uint8_t modRM, uint8_t v, int &cycles, uint32_t addr, bool rw, int additionalOffset)
+void RAM_FUNC(CPU::writeRM8)(uint8_t modRM, uint8_t v, uint32_t addr, bool rw, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
@@ -6065,7 +6065,7 @@ void RAM_FUNC(CPU::writeRM8)(uint8_t modRM, uint8_t v, int &cycles, uint32_t add
         reg(static_cast<Reg8>(rm)) = v;
 }
 
-void RAM_FUNC(CPU::writeRM16)(uint8_t modRM, uint16_t v, int &cycles, uint32_t addr, bool rw, int additionalOffset)
+void RAM_FUNC(CPU::writeRM16)(uint8_t modRM, uint16_t v, uint32_t addr, bool rw, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
@@ -6079,7 +6079,7 @@ void RAM_FUNC(CPU::writeRM16)(uint8_t modRM, uint16_t v, int &cycles, uint32_t a
         reg(static_cast<Reg16>(rm)) = v;
 }
 
-void RAM_FUNC(CPU::writeRM32)(uint8_t modRM, uint32_t v, int &cycles, uint32_t addr, bool rw, int additionalOffset)
+void RAM_FUNC(CPU::writeRM32)(uint8_t modRM, uint32_t v, uint32_t addr, bool rw, int additionalOffset)
 {
     auto mod = modRM >> 6;
     auto rm = modRM & 7;
