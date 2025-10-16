@@ -5042,30 +5042,66 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             uint32_t newIP;
             uint16_t newCS;
+
+            int offset = 1;
+
             if(operandSize32)
             {
                 newIP = readMem32(addr + 1);
-                newCS = readMem16(addr + 5);
+                offset += 4;
             }
             else
             {
                 newIP = readMem16(addr + 1);
-                newCS = readMem16(addr + 3);
+                offset += 2;
             }
+
+            newCS = readMem16(addr + offset);
+
+            auto retAddr = reg(Reg32::EIP) + offset + 1 /*+2 for CS, -1 that was added by fetch*/;
 
             if(isProtectedMode() && !(flags & Flag_VM))
             {
                 if(!checkSegmentSelector(Reg16::CS, newCS, true))
                     break;
 
-                auto newCSFlags = loadSegmentDescriptor(newCS).flags;
+                auto newDesc = loadSegmentDescriptor(newCS);
+                auto newCSFlags = newDesc.flags;
                 unsigned rpl = newCS & 3;
                 unsigned dpl = (newCSFlags & SD_PrivilegeLevel) >> 21;
 
                 if(!(newCSFlags & SD_Type))
                 {
-                    printf("jmp gate/task\n");
-                    exit(1);
+                    switch(newCSFlags & SD_SysType)
+                    {
+                        case SD_SysTypeTaskGate:
+                        {
+                            if(dpl < cpl || dpl < rpl)
+                            {
+                                fault(Fault::GP, newCS & ~3);
+                                break;
+                            }
+
+                            auto tssSelector = newDesc.base & 0xFFFF;
+
+                            // must be in GDT
+                            if((tssSelector & 4)/*local*/ || (tssSelector | 7) > gdtLimit)
+                            {
+                                fault(Fault::GP, tssSelector & ~3);
+                                return;
+                            }
+
+                            if(!taskSwitch(tssSelector, retAddr, TaskSwitchSource::Jump))
+                                printf("JMP task switch fault!\n");
+
+                            break;
+                        }
+                        default:
+                            printf("jmp gate\n");
+                            exit(1);
+                    }
+
+                    break; // nothing to do (JMP IP ignored)
                 }
                 else if(newCSFlags & SD_DirConform) // conforming code
                 {
