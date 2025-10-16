@@ -1030,20 +1030,16 @@ void RAM_FUNC(CPU::executeInstruction)()
                         {
                             auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
 
-                            writeMem16(offset, segment, gdtLimit);
-                            writeMem32(offset + 2, segment, gdtBase);
-
-                            reg(Reg32::EIP) += 2;
+                            if(writeMem16(offset, segment, gdtLimit) && writeMem32(offset + 2, segment, gdtBase))
+                                reg(Reg32::EIP) += 2;
                             break;
                         }
                         case 0x1: // SIDT
                         {
                             auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
 
-                            writeMem16(offset, segment, idtLimit);
-                            writeMem32(offset + 2, segment, idtBase);
-
-                            reg(Reg32::EIP) += 2;
+                            if(writeMem16(offset, segment, idtLimit) && writeMem32(offset + 2, segment, idtBase))
+                                reg(Reg32::EIP) += 2;
                             break;
                         }
                         case 0x2: // LGDT
@@ -2495,7 +2491,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 while(count)
                 {
                     // TODO: interrupt
-                    writeMem8(di, Reg16::ES, sys.readIOPort(port));
+                    if(!writeMem8(di, Reg16::ES, sys.readIOPort(port)))
+                        break;
 
                     di += step;
 
@@ -2510,15 +2507,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 else
                     reg(Reg16::CX) = count;
             }
-            else
-            {
-                writeMem8(di, Reg16::ES, sys.readIOPort(port));
-
+            else if(writeMem8(di, Reg16::ES, sys.readIOPort(port)))
                 di += step;
-
-                if(!addressSize32)
-                    di &= 0xFFFF;
-            }
 
             if(addressSize32)
                 reg(Reg32::EDI) = di;
@@ -2555,13 +2545,11 @@ void RAM_FUNC(CPU::executeInstruction)()
                     if(operandSize32)
                     {
                         auto v = sys.readIOPort16(port) | sys.readIOPort16(port + 2);
-                        writeMem32(di, Reg16::ES, v);
+                        if(!writeMem32(di, Reg16::ES, v))
+                            break;
                     }
-                    else
-                    {
-                        auto v = sys.readIOPort16(port);
-                        writeMem16(di, Reg16::ES, v);
-                    }
+                    else if(!writeMem16(di, Reg16::ES, sys.readIOPort16(port)))
+                        break;
 
                     di += step;
 
@@ -2581,13 +2569,11 @@ void RAM_FUNC(CPU::executeInstruction)()
                 if(operandSize32)
                 {
                     auto v = sys.readIOPort16(port) | sys.readIOPort16(port + 2);
-                    writeMem32(di, Reg16::ES, v);
+                    if(!writeMem32(di, Reg16::ES, v))
+                        break;
                 }
-                else
-                {
-                    auto v = sys.readIOPort16(port);
-                    writeMem16(di, Reg16::ES, v);
-                }
+                else if(!writeMem16(di, Reg16::ES, sys.readIOPort16(port)))
+                    break;
 
                 di += step;
             }
@@ -3384,7 +3370,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
                     auto v = readMem8(si, segment);
-                    writeMem8(di, Reg16::ES, v);
+                    if(!writeMem8(di, Reg16::ES, v))
+                        break;
 
                     si += step;
                     di += step;
@@ -3406,16 +3393,11 @@ void RAM_FUNC(CPU::executeInstruction)()
             else
             {
                 auto v = readMem8(si, segment);
-                writeMem8(di, Reg16::ES, v);
+                if(!writeMem8(di, Reg16::ES, v))
+                    break;
 
                 si += step;
                 di += step;
-
-                if(!addressSize32)
-                {
-                    si &= 0xFFFF;
-                    di &= 0xFFFF;
-                }
             }
 
             if(addressSize32)
@@ -3460,12 +3442,14 @@ void RAM_FUNC(CPU::executeInstruction)()
                     if(operandSize32)
                     {
                         auto v = readMem32(si, segment);
-                        writeMem32(di, Reg16::ES, v);
+                        if(!writeMem32(di, Reg16::ES, v))
+                            break;
                     }
                     else
                     {
                         auto v = readMem16(si, segment);
-                        writeMem16(di, Reg16::ES, v);
+                        if(!writeMem16(di, Reg16::ES, v))
+                            break;
                     }
 
                     si += step;
@@ -3490,12 +3474,14 @@ void RAM_FUNC(CPU::executeInstruction)()
                 if(operandSize32)
                 {
                     auto v = readMem32(si, segment);
-                    writeMem32(di, Reg16::ES, v);
+                    if(!writeMem32(di, Reg16::ES, v))
+                        break;
                 }
                 else
                 {
                     auto v = readMem16(si, segment);
-                    writeMem16(di, Reg16::ES, v);
+                    if(!writeMem16(di, Reg16::ES, v))
+                        break;
                 }
 
                 si += step;
@@ -3731,7 +3717,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                 while(count)
                 {
                     // TODO: interrupt
-                    writeMem8(di, Reg16::ES, reg(Reg8::AL));
+                    if(!writeMem8(di, Reg16::ES, reg(Reg8::AL)))
+                        break;
 
                     di += step;
 
@@ -3748,7 +3735,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
-                writeMem8(di, Reg16::ES, reg(Reg8::AL));
+                if(!writeMem8(di, Reg16::ES, reg(Reg8::AL)))
+                    break;
 
                 di += step;
             }
@@ -3780,9 +3768,12 @@ void RAM_FUNC(CPU::executeInstruction)()
                 {
                     // TODO: interrupt
                     if(operandSize32)
-                        writeMem32(di, Reg16::ES, reg(Reg32::EAX));
-                    else
-                        writeMem16(di, Reg16::ES, reg(Reg16::AX));
+                    {
+                        if(!writeMem32(di, Reg16::ES, reg(Reg32::EAX)))
+                            break;
+                    }
+                    else if(!writeMem16(di, Reg16::ES, reg(Reg16::AX)))
+                        break;
 
                     di += step;
 
@@ -3800,9 +3791,12 @@ void RAM_FUNC(CPU::executeInstruction)()
             else
             {
                 if(operandSize32)
-                    writeMem32(di, Reg16::ES, reg(Reg32::EAX));
-                else
-                    writeMem16(di, Reg16::ES, reg(Reg16::AX));
+                {
+                    if(!writeMem32(di, Reg16::ES, reg(Reg32::EAX)))
+                        break;
+                }
+                else if(!writeMem16(di, Reg16::ES, reg(Reg16::AX)))
+                    break;
 
                 di += step;
             }
@@ -5461,17 +5455,17 @@ uint32_t RAM_FUNC(CPU::readMem32)(uint32_t offset, Reg16 segment)
     return readMem32(offset + getSegmentOffset(segment));
 }
 
-void RAM_FUNC(CPU::writeMem8)(uint32_t offset, Reg16 segment, uint8_t data)
+bool RAM_FUNC(CPU::writeMem8)(uint32_t offset, Reg16 segment, uint8_t data)
 {
     return writeMem8(offset + getSegmentOffset(segment), data);
 }
 
-void RAM_FUNC(CPU::writeMem16)(uint32_t offset, Reg16 segment, uint16_t data)
+bool RAM_FUNC(CPU::writeMem16)(uint32_t offset, Reg16 segment, uint16_t data)
 {
     return writeMem16(offset + getSegmentOffset(segment), data);
 }
 
-void RAM_FUNC(CPU::writeMem32)(uint32_t offset, Reg16 segment, uint32_t data)
+bool RAM_FUNC(CPU::writeMem32)(uint32_t offset, Reg16 segment, uint32_t data)
 {
     return writeMem32(offset + getSegmentOffset(segment), data);
 }
@@ -5497,25 +5491,28 @@ uint32_t RAM_FUNC(CPU::readMem32)(uint32_t offset)
            sys.readMem(physAddr + 3) << 24;
 }
 
-void RAM_FUNC(CPU::writeMem8)(uint32_t offset, uint8_t data)
+bool RAM_FUNC(CPU::writeMem8)(uint32_t offset, uint8_t data)
 {
     sys.writeMem(getPhysicalAddress(offset), data);
+    return true;
 }
 
-void RAM_FUNC(CPU::writeMem16)(uint32_t offset, uint16_t data)
+bool RAM_FUNC(CPU::writeMem16)(uint32_t offset, uint16_t data)
 {
     auto physAddr = getPhysicalAddress(offset);
     sys.writeMem(physAddr, data & 0xFF);
     sys.writeMem(physAddr + 1, data >> 8);
+    return true;
 }
 
-void RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t data)
+bool RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t data)
 {
     auto physAddr = getPhysicalAddress(offset);
     sys.writeMem(physAddr + 0, data & 0xFF);
     sys.writeMem(physAddr + 1, data >> 8);
     sys.writeMem(physAddr + 2, data >> 16);
     sys.writeMem(physAddr + 3, data >> 24);
+    return true;
 }
 
 uint32_t CPU::getPhysicalAddress(uint32_t virtAddr)

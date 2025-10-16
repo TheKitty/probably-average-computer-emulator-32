@@ -126,17 +126,17 @@ private:
     uint8_t readMem8(uint32_t offset, Reg16 segment);
     uint16_t readMem16(uint32_t offset, Reg16 segment);
     uint32_t readMem32(uint32_t offset, Reg16 segment);
-    void writeMem8(uint32_t offset, Reg16 segment, uint8_t data);
-    void writeMem16(uint32_t offset, Reg16 segment, uint16_t data);
-    void writeMem32(uint32_t offset, Reg16 segment, uint32_t data);
+    bool writeMem8(uint32_t offset, Reg16 segment, uint8_t data);
+    bool writeMem16(uint32_t offset, Reg16 segment, uint16_t data);
+    bool writeMem32(uint32_t offset, Reg16 segment, uint32_t data);
 
     // some internal stuff that already has a linear address
     uint8_t readMem8(uint32_t offset);
     uint16_t readMem16(uint32_t offset);
     uint32_t readMem32(uint32_t offset);
-    void writeMem8(uint32_t offset, uint8_t data);
-    void writeMem16(uint32_t offset, uint16_t data);
-    void writeMem32(uint32_t offset, uint32_t data);
+    bool writeMem8(uint32_t offset, uint8_t data);
+    bool writeMem16(uint32_t offset, uint16_t data);
+    bool writeMem32(uint32_t offset, uint32_t data);
 
     uint32_t getPhysicalAddress(uint32_t virtAddr);
 
