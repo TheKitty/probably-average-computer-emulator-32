@@ -132,7 +132,7 @@ private:
 
     uint32_t getPhysicalAddress(uint32_t virtAddr);
 
-    std::tuple<uint32_t, uint32_t> getEffectiveAddress(int mod, int rm, int &cycles, bool rw, uint32_t addr);
+    std::tuple<uint32_t, uint32_t> getEffectiveAddress(int mod, int rm, bool rw, uint32_t addr);
 
     SegmentDescriptor &getCachedSegmentDescriptor(Reg16 r) {return segmentDescriptorCache[static_cast<int>(r) - static_cast<int>(Reg16::ES)];}
     uint32_t getSegmentOffset(Reg16 r) {return getCachedSegmentDescriptor(r).base;}

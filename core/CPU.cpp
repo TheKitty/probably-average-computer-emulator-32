@@ -1035,8 +1035,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     {
                         case 0x0: // SGDT
                         {
-                            int cycles;
-                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
+                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
 
                             writeMem16(offset, segment, gdtLimit);
                             writeMem32(offset + 2, segment, gdtBase);
@@ -1046,8 +1045,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         }
                         case 0x1: // SIDT
                         {
-                            int cycles;
-                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
+                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
 
                             writeMem16(offset, segment, idtLimit);
                             writeMem32(offset + 2, segment, idtBase);
@@ -1057,8 +1055,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         }
                         case 0x2: // LGDT
                         {
-                            int cycles;
-                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
+                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
                             gdtLimit = readMem16(offset, segment);
                             gdtBase = readMem32(offset + 2, segment);
 
@@ -1069,8 +1066,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         }
                         case 0x3: // LIDT
                         {
-                            int cycles;
-                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr + 1);
+                            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr + 1);
                             idtLimit = readMem16(offset, segment);
                             idtBase = readMem32(offset + 2, segment);
 
@@ -2361,8 +2357,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = readMem8(addr + 1);
             auto r = (modRM >> 3) & 0x7;
 
-            int cycles;
-            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr);
+            auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, false, addr);
 
             int32_t index, lower, upper;
 
@@ -3134,9 +3129,8 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto modRM = readMem8(addr + 1);
             auto r = (modRM >> 3) & 0x7;
 
-            int cycles = 2;
             // the only time we don't want the segment added...
-            auto offset = std::get<0>(getEffectiveAddress(modRM >> 6, modRM & 7, cycles, false, addr));
+            auto offset = std::get<0>(getEffectiveAddress(modRM >> 6, modRM & 7, false, addr));
 
             if(operandSize32)
                 reg(static_cast<Reg32>(r)) = offset;
@@ -5488,8 +5482,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     assert(!isReg);
 
                     // need the addr again...
-                    int cycleTmp;
-                    auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycleTmp, true, addr);
+                    auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, true, addr);
                     auto newCS = readMem16(offset + (operandSize32 ? 4 : 2), segment);
 
                     farCall(newCS, v, reg(Reg32::EIP) + 1, operandSize32, stackAddrSize32);
@@ -5505,8 +5498,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     assert(!isReg);
 
                     // need the addr again...
-                    int cycleTmp;
-                    auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, cycleTmp, true, addr);
+                    auto [offset, segment] = getEffectiveAddress(modRM >> 6, modRM & 7, true, addr);
                     auto newCS = readMem16(offset + (operandSize32 ? 4 : 2), segment);
 
                     setSegmentReg(Reg16::CS, newCS);
@@ -5613,7 +5605,7 @@ uint32_t CPU::getPhysicalAddress(uint32_t virtAddr)
 
 // rw is true if this is a write that was read in the same op (to avoid counting disp twice)
 // TODO: should addr cycles be counted twice?
-std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int rm, int &cycles, bool rw, uint32_t addr)
+std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int rm, bool rw, uint32_t addr)
 {
     bool addressSize32 = isOperandSize32(addressSizeOverride); // TODO: cache?
 
@@ -5673,14 +5665,12 @@ std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
 
                     if(!rw)
                         reg(Reg32::EIP) += 4;
-                    cycles += 6;
                 }
                 else
                 {
                     // default to stack segment
                     memAddr = reg(Reg32::EBP);
                     segBase = Reg16::SS;
-                    cycles += 5;
                 }
                 break;
         }
@@ -5691,29 +5681,23 @@ std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
         {
             case 0: // BX + SI
                 memAddr = reg(Reg16::BX) + reg(Reg16::SI);
-                cycles += 7;
                 break;
             case 1: // BX + DI
                 memAddr = reg(Reg16::BX) + reg(Reg16::DI);
-                cycles += 8;
                 break;
             case 2: // BP + SI
                 memAddr = reg(Reg16::BP) + reg(Reg16::SI);
                 segBase = Reg16::SS;
-                cycles += 8;
                 break;
             case 3: // BP + DI
                 memAddr = reg(Reg16::BP) + reg(Reg16::DI);
                 segBase = Reg16::SS;
-                cycles += 7;
                 break;
             case 4:
                 memAddr = reg(Reg16::SI);
-                cycles += 5;
                 break;
             case 5:
                 memAddr = reg(Reg16::DI);
-                cycles += 5;
                 break;
             case 6:
                 if(mod == 0) // direct
@@ -5722,19 +5706,16 @@ std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
 
                     if(!rw)
                         reg(Reg32::EIP) += 2;
-                    cycles += 6;
                 }
                 else
                 {
                     // default to stack segment
                     memAddr = reg(Reg16::BP);
                     segBase = Reg16::SS;
-                    cycles += 5;
                 }
                 break;
             case 7:
                 memAddr = reg(Reg16::BX);
-                cycles += 5;
                 break;
         }
     }
@@ -5752,7 +5733,6 @@ std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
             reg(Reg32::EIP)++;
 
         memAddr += disp;
-        cycles += 4; // 5 -> 9, 7 -> 11, 8 -> 12
     }
     else if(mod == 2)
     {
@@ -5773,15 +5753,11 @@ std::tuple<uint32_t, uint32_t> RAM_FUNC(CPU::getEffectiveAddress)(int mod, int r
 
             memAddr += disp;
         }
-        cycles += 4;
     }
 
     // apply segment override
     if(segmentOverride != Reg16::AX)
-    {
         segBase = segmentOverride;
-        cycles += 2;
-    }
 
     if(!addressSize32)
         memAddr &= 0xFFFF;
@@ -6100,7 +6076,7 @@ uint8_t RAM_FUNC(CPU::readRM8)(uint8_t modRM, int &cycles, uint32_t addr, int ad
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, false, addr);
         return readMem8(offset + additionalOffset, segment);
     }
     else
@@ -6114,7 +6090,7 @@ uint16_t RAM_FUNC(CPU::readRM16)(uint8_t modRM, int &cycles, uint32_t addr, int 
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, false, addr);
         return readMem16(offset + additionalOffset, segment);
     }
     else
@@ -6128,7 +6104,7 @@ uint32_t RAM_FUNC(CPU::readRM32)(uint8_t modRM, int &cycles, uint32_t addr, int 
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, false, addr);
         return readMem32(offset + additionalOffset, segment);
     }
     else
@@ -6142,7 +6118,7 @@ void RAM_FUNC(CPU::writeRM8)(uint8_t modRM, uint8_t v, int &cycles, uint32_t add
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, rw, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, rw, addr);
         writeMem8(offset + additionalOffset, segment, v);
     }
     else
@@ -6156,7 +6132,7 @@ void RAM_FUNC(CPU::writeRM16)(uint8_t modRM, uint16_t v, int &cycles, uint32_t a
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, rw, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, rw, addr);
         writeMem16(offset + additionalOffset, segment, v);
     }
     else
@@ -6170,7 +6146,7 @@ void RAM_FUNC(CPU::writeRM32)(uint8_t modRM, uint32_t v, int &cycles, uint32_t a
 
     if(mod != 3)
     {
-        auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, rw, addr);
+        auto [offset, segment] = getEffectiveAddress(mod, rm, rw, addr);
         writeMem32(offset + additionalOffset, segment, v);
     }
     else
@@ -6509,9 +6485,7 @@ void CPU::loadFarPointer(uint32_t addr, Reg16 segmentReg, bool operandSize32)
 
     assert(mod != 3);
 
-    int cycles = 16 + 2 * 4;
-
-    auto [offset, segment] = getEffectiveAddress(mod, rm, cycles, false, addr);
+    auto [offset, segment] = getEffectiveAddress(mod, rm, false, addr);
 
     if(operandSize32)
     {
