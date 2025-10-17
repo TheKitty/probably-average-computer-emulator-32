@@ -6002,6 +6002,48 @@ bool CPU::checkIOPermission(uint16_t addr)
     return false;
 }
 
+bool CPU::checkSegmentAccess(Reg16 segment, uint32_t offset, int width, bool write)
+{
+    auto &desc = getCachedSegmentDescriptor(segment);
+
+    if(flags & Flag_VM)
+    {
+        // v86 mode always has 64k limit?
+        if(offset + width - 1 > 0xFFFF)
+        {
+            fault(segment == Reg16::SS ? Fault::SS : Fault::GP);
+            return false;
+        }
+        return true;
+    }
+
+    // check limit (also check for overflow)
+    if(offset + width - 1 > desc.limit || offset > 0xFFFFFFFF - (width - 1))
+    {
+        fault(segment == Reg16::SS ? Fault::SS : Fault::GP, 0);
+        return false;
+    }
+
+    // nothing else to check in real mode
+    if(!isProtectedMode() || (flags & Flag_VM))
+        return true;
+
+    // corner case null descriptor check (we zero the limit, but a byte access at offset 0 might still get through)
+    if(width == 1 && offset == 0 && desc.limit == 0 && reg(segment) == 0)
+    {
+        fault(Fault::GP, 0);
+        return false;
+    }
+
+    // check writable
+    if(write && ((desc.flags & SD_Executable)|| !(desc.flags & SD_ReadWrite)))
+    {
+        fault(Fault::GP, 0);
+        return false;
+    }
+    return true;
+}
+
 // also address size, but with a different override prefix
 bool CPU::isOperandSize32(bool override)
 {
