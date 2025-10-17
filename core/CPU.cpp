@@ -5474,16 +5474,22 @@ uint32_t RAM_FUNC(CPU::readMem32)(uint32_t offset, Reg16 segment)
 
 bool RAM_FUNC(CPU::writeMem8)(uint32_t offset, Reg16 segment, uint8_t data)
 {
+    if(!checkSegmentAccess(segment, offset, 1, true))
+        return false;
     return writeMem8(offset + getSegmentOffset(segment), data);
 }
 
 bool RAM_FUNC(CPU::writeMem16)(uint32_t offset, Reg16 segment, uint16_t data)
 {
+    if(!checkSegmentAccess(segment, offset, 2, true))
+        return false;
     return writeMem16(offset + getSegmentOffset(segment), data);
 }
 
 bool RAM_FUNC(CPU::writeMem32)(uint32_t offset, Reg16 segment, uint32_t data)
 {
+    if(!checkSegmentAccess(segment, offset, 4, true))
+        return false;
     return writeMem32(offset + getSegmentOffset(segment), data);
 }
 
