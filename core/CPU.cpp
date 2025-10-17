@@ -689,19 +689,21 @@ void RAM_FUNC(CPU::executeInstruction)()
         return doPush(val, is32, stackAddrSize32);
     };
 
-    auto pop = [this, stackAddrSize32](bool is32)
+    auto pop = [this, stackAddrSize32](bool is32, uint32_t &v)
     {
         uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-        uint32_t ret;
-        
-        // FIXME: faults
+
         if(is32)
-            readMem32(sp, Reg16::SS, ret);
+        {
+            if(!readMem32(sp, Reg16::SS, v))
+                return false;
+        }
         else
         {
             uint16_t tmp;
-            readMem16(sp, Reg16::SS, tmp);
-            ret = tmp;
+            if(!readMem16(sp, Reg16::SS, tmp))
+                return false;
+            v = tmp;
         }
 
         sp += is32 ? 4 : 2;
@@ -711,14 +713,13 @@ void RAM_FUNC(CPU::executeInstruction)()
         else
             reg(Reg16::SP) = sp;
 
-        return ret;
+        return true;
     };
 
     // sometimes we need to check values (segments) before affecting SP
-    auto peek = [this, stackAddrSize32](bool is32, int offset)
+    auto peek = [this, stackAddrSize32](bool is32, int offset, uint32_t &v)
     {
         uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-        uint32_t ret;
 
         sp += offset * (is32 ? 4 : 2);
 
@@ -726,14 +727,16 @@ void RAM_FUNC(CPU::executeInstruction)()
             sp &= 0xFFFF;
         
         if(is32)
-            readMem32(sp, Reg16::SS, ret);
+            return readMem32(sp, Reg16::SS, v);
         else
         {
             uint16_t tmp;
-            readMem16(sp, Reg16::SS, tmp);
-            ret = tmp;
+            if(!readMem16(sp, Reg16::SS, tmp))
+                return false;
+            v = tmp;
         }
-        return ret;
+
+        return true;
     };
 
     auto getCondValue = [this](int cond)
@@ -840,7 +843,12 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto r = static_cast<Reg16>(((opcode >> 3) & 7) + static_cast<int>(Reg16::ES));
 
-            setSegmentReg(r, pop(operandSize32));
+            uint32_t v;
+            if(!pop(operandSize32, v))
+                break;
+
+            setSegmentReg(r, v);
+
             break;
         }
 
@@ -1323,10 +1331,16 @@ void RAM_FUNC(CPU::executeInstruction)()
                     reg(Reg32::EIP)++;
                     break;
                 case 0xA1: // POP FS
-                    if(setSegmentReg(Reg16::FS, pop(operandSize32)))
-                        reg(Reg32::EIP)++;
-                    break;
+                {
+                    uint32_t v;
+                    if(!pop(operandSize32, v))
+                        break;
 
+                    if(setSegmentReg(Reg16::FS, v))
+                        reg(Reg32::EIP)++;
+
+                    break;
+                }
                 case 0xA3: // BT
                 {
                     uint8_t modRM;
@@ -1421,9 +1435,16 @@ void RAM_FUNC(CPU::executeInstruction)()
                     reg(Reg32::EIP)++;
                     break;
                 case 0xA9: // POP GS
-                    if(setSegmentReg(Reg16::GS, pop(operandSize32)))
+                {
+                    uint32_t v;
+                    if(!pop(operandSize32, v))
+                        break;
+
+                    if(setSegmentReg(Reg16::GS, v))
                         reg(Reg32::EIP)++;
+
                     break;
+                }
 
                 case 0xAB: // BTS
                 {
@@ -2390,7 +2411,9 @@ void RAM_FUNC(CPU::executeInstruction)()
         {
             auto r = opcode & 7;
 
-            auto v = pop(operandSize32);
+            uint32_t v;
+            if(!pop(operandSize32, v))
+                break;
 
             if(operandSize32)
                 reg(static_cast<Reg32>(r)) = v;
@@ -2415,27 +2438,29 @@ void RAM_FUNC(CPU::executeInstruction)()
         }
         case 0x61: // POPA
         {
+            // FIXME: faults
+            uint32_t v;
             if(operandSize32)
             {
-                reg(Reg32::EDI) = pop(true);
-                reg(Reg32::ESI) = pop(true);
-                reg(Reg32::EBP) = pop(true);
-                pop(true); // skip sp
-                reg(Reg32::EBX) = pop(true);
-                reg(Reg32::EDX) = pop(true);
-                reg(Reg32::ECX) = pop(true);
-                reg(Reg32::EAX) = pop(true);
+                pop(true, reg(Reg32::EDI));
+                pop(true, reg(Reg32::ESI));
+                pop(true, reg(Reg32::EBP));
+                pop(true, v); // skip sp
+                pop(true, reg(Reg32::EBX));
+                pop(true, reg(Reg32::EDX));
+                pop(true, reg(Reg32::ECX));
+                pop(true, reg(Reg32::EAX));
             }
             else
             {
-                reg(Reg16::DI) = pop(false);
-                reg(Reg16::SI) = pop(false);
-                reg(Reg16::BP) = pop(false);
-                pop(false); // skip sp
-                reg(Reg16::BX) = pop(false);
-                reg(Reg16::DX) = pop(false);
-                reg(Reg16::CX) = pop(false);
-                reg(Reg16::AX) = pop(false);
+                pop(false, v); reg(Reg16::DI) = v;
+                pop(false, v); reg(Reg16::SI) = v;
+                pop(false, v); reg(Reg16::BP) = v;
+                pop(false, v); // skip sp
+                pop(false, v); reg(Reg16::BX) = v;
+                pop(false, v); reg(Reg16::DX) = v;
+                pop(false, v); reg(Reg16::CX) = v;
+                pop(false, v); reg(Reg16::AX) = v;
             }
 
             break;
@@ -3345,7 +3370,10 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             assert(((modRM >> 3) & 0x7) == 0);
 
-            auto v = pop(operandSize32);
+            uint32_t v;
+            if(!pop(operandSize32, v))
+                break;
+
             if(operandSize32)
                 writeRM32(modRM, v, addr);
             else
@@ -3465,7 +3493,10 @@ void RAM_FUNC(CPU::executeInstruction)()
         }
         case 0x9D: // POPF
         {
-            uint32_t newFlags = pop(operandSize32);
+            uint32_t newFlags;
+            if(!pop(operandSize32, newFlags))
+                break;
+
             uint32_t flagMask;
 
             if(flags & Flag_VM) // virtual 8086 mode
@@ -4437,7 +4468,10 @@ void RAM_FUNC(CPU::executeInstruction)()
                 return;
             
             // pop from stack
-            auto newIP = pop(operandSize32);
+            uint32_t newIP;
+
+            if(!pop(operandSize32, newIP))
+                break;
 
             // add imm to SP
             if(stackAddrSize32)
@@ -4451,7 +4485,10 @@ void RAM_FUNC(CPU::executeInstruction)()
         case 0xC3: // RET near
         {
             // pop from stack
-            auto newIP = pop(operandSize32);
+            uint32_t newIP;
+
+            if(!pop(operandSize32, newIP))
+                break;
 
             setIP(newIP);
             break;
@@ -4582,7 +4619,10 @@ void RAM_FUNC(CPU::executeInstruction)()
                 reg(Reg16::SP) = reg(Reg16::BP);
             
             // restore BP
-            auto val = pop(operandSize32);
+            uint32_t val;
+            if(!pop(operandSize32, val))
+                break;
+
             if(operandSize32)
                 reg(Reg32::EBP) = val;
             else
@@ -4594,24 +4634,25 @@ void RAM_FUNC(CPU::executeInstruction)()
         case 0xCA: // RET far, add to SP
         case 0xCB: // RET far
         {
-            // need to validate CS BEFORE popping anything...
-            if(isProtectedMode() && !(flags & Flag_VM))
-            {
-                auto newCS = peek(operandSize32, 1);
-                if(!checkSegmentSelector(Reg16::CS, newCS))
-                    break;
-            }
-
             // read the offset if needed
             uint16_t imm = 0;
             if(opcode == 0xCA && !readMem16(addr + 1, imm))
                 return;
 
-            // pop IP
-            auto newIP = pop(operandSize32);
+            // need to validate CS BEFORE popping anything...
+            if(isProtectedMode() && !(flags & Flag_VM))
+            {
+                // peek might fault first
+                uint32_t newCS;
+                if(!peek(operandSize32, 1, newCS) || !checkSegmentSelector(Reg16::CS, newCS))
+                    break;
+            }
 
-            // pop CS
-            auto newCS = pop(operandSize32);
+            uint32_t newIP, newCS;
+
+            // pop IP/VS
+            if(!pop(operandSize32, newIP) || !pop(operandSize32, newCS))
+                break;
 
             if(opcode == 0xCA)
             {
@@ -4633,8 +4674,11 @@ void RAM_FUNC(CPU::executeInstruction)()
                     setIP(newIP);
 
                     // additional stack restore
-                    auto newSP = pop(operandSize32);
-                    auto newSS = pop(operandSize32);
+                    uint32_t newSP, newSS;
+
+                    // FIXME
+                    pop(operandSize32, newSP);
+                    pop(operandSize32, newSS);
 
                     if(setSegmentReg(Reg16::SS, newSS))
                         reg(Reg32::ESP) = newSP;
@@ -4703,23 +4747,28 @@ void RAM_FUNC(CPU::executeInstruction)()
             // need to validate CS BEFORE popping anything...
             if(isProtectedMode() && !(flags & Flag_VM) && !(flags & Flag_NT))
             {
-                auto newCS = peek(operandSize32, 1);
-                auto newFlags = peek(operandSize32, 2);
+                uint32_t newCS, newFlags;
+                if(!peek(operandSize32, 1, newCS) || !peek(operandSize32, 2, newFlags))
+                    break; // whoops stack fault
+
                 // not a segment selector if we're switching to virtual-8086 mode
                 if(!(newFlags & Flag_VM) && !checkSegmentSelector(Reg16::CS, newCS))
                     break;
             }
 
+            uint32_t newIP, newCS, newFlags;
+
             if(!isProtectedMode()) // real mode
             {
+                // FIXME: faults
                 // pop IP
-                auto newIP = pop(operandSize32);
+                pop(operandSize32, newIP);
 
                 // pop CS
-                auto newCS = pop(operandSize32);
+                pop(operandSize32, newCS);
 
                 // pop flags
-                auto newFlags = pop(operandSize32);
+                pop(operandSize32, newFlags);
 
                 // real mode
                 uint32_t flagMask = Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_T | Flag_I | Flag_D | Flag_O | Flag_IOPL | Flag_NT | Flag_R;
@@ -4735,13 +4784,13 @@ void RAM_FUNC(CPU::executeInstruction)()
                 if(iopl == 3)
                 {
                     // pop IP
-                    auto newIP = pop(operandSize32);
+                    pop(operandSize32, newIP);
 
                     // pop CS
-                    auto newCS = pop(operandSize32);
+                    pop(operandSize32, newCS);
 
                     // pop flags
-                    auto newFlags = pop(operandSize32);
+                    pop(operandSize32, newFlags);
 
                     setSegmentReg(Reg16::CS, newCS);
                     setIP(newIP);
@@ -4764,14 +4813,15 @@ void RAM_FUNC(CPU::executeInstruction)()
             }
             else
             {
+                // we know that these aren't going to fault as we've already read them
                 // pop IP
-                auto newIP = pop(operandSize32);
+                pop(operandSize32, newIP);
 
                 // pop CS
-                auto newCS = pop(operandSize32);
+                pop(operandSize32, newCS);
 
                 // pop flags
-                auto newFlags = pop(operandSize32);
+                pop(operandSize32, newFlags);
 
                 unsigned newCSRPL = newCS & 3;
 
@@ -4785,22 +4835,25 @@ void RAM_FUNC(CPU::executeInstruction)()
                     cpl = 3;
 
                     // prepare new stack
-                    auto newESP = pop(operandSize32);
-                    auto newSS = pop(operandSize32);
+                    uint32_t newESP, newSS;
+                    pop(operandSize32, newESP);
+                    pop(operandSize32, newSS);
 
                     // pop segments
-                    setSegmentReg(Reg16::ES, pop(operandSize32));
-                    setSegmentReg(Reg16::DS, pop(operandSize32));
-                    setSegmentReg(Reg16::FS, pop(operandSize32));
-                    setSegmentReg(Reg16::GS, pop(operandSize32));
+                    uint32_t v;
+                    pop(operandSize32, v); setSegmentReg(Reg16::ES, v);
+                    pop(operandSize32, v); setSegmentReg(Reg16::DS, v);
+                    pop(operandSize32, v); setSegmentReg(Reg16::FS, v);
+                    pop(operandSize32, v); setSegmentReg(Reg16::GS, v);
 
                     setSegmentReg(Reg16::SS, newSS);
                     reg(Reg32::ESP) = newESP;
                 }
                 else if(newCSRPL > cpl) // return to outer privilege
                 {
-                    uint32_t newESP = pop(operandSize32);
-                    uint16_t newSS = pop(operandSize32);
+                    uint32_t newESP, newSS;
+                    pop(operandSize32, newESP);
+                    pop(operandSize32, newSS);
 
                     // flags
                     unsigned iopl = (flags & Flag_IOPL) >> 12;
