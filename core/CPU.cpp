@@ -6780,5 +6780,6 @@ void CPU::fault(Fault fault, uint32_t code)
 {
     this->fault(fault);
     // might have changed the stack address size
-    doPush(code, true, isStackAddressSize32());
+    if(isProtectedMode())
+        doPush(code, isOperandSize32(false), isStackAddressSize32());
 }
