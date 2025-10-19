@@ -7083,7 +7083,7 @@ void CPU::farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operand
                         auto oldSS = reg(Reg16::SS);
                         auto copyAddr = oldSP + getSegmentOffset(Reg16::SS);
 
-                        int newCPL = newDesc.base & 3;
+                        int newCPL = codeSegDPL;
 
                         // validate new SS
                         if(!checkSegmentSelector(Reg16::SS, newSS, newCPL, false, Fault::TS))
@@ -7128,7 +7128,9 @@ void CPU::farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operand
                         // push IP
                         doPush(retAddr, is32, stackAddress32);
 
-                        reg(Reg16::CS) = newDesc.base & 0xFFFF;
+                        reg(Reg16::CS) = (newDesc.base & 0xFFFC) | newCPL;
+                        cpl = newCPL;
+
                         getCachedSegmentDescriptor(Reg16::CS) = codeSegDesc;
                         reg(Reg32::EIP) = codeSegOffset;
                     }
