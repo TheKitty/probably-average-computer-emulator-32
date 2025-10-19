@@ -6174,16 +6174,22 @@ void RAM_FUNC(CPU::executeInstruction)()
 
 bool RAM_FUNC(CPU::readMem8)(uint32_t offset, Reg16 segment, uint8_t &data)
 {
+    if(!checkSegmentAccess(segment, offset, 1, false))
+        return false;
     return readMem8(offset + getSegmentOffset(segment), data);
 }
 
 bool RAM_FUNC(CPU::readMem16)(uint32_t offset, Reg16 segment, uint16_t &data)
 {
+    if(!checkSegmentAccess(segment, offset, 2, false))
+        return false;
     return readMem16(offset + getSegmentOffset(segment), data);
 }
 
 bool RAM_FUNC(CPU::readMem32)(uint32_t offset, Reg16 segment, uint32_t &data)
 {
+    if(!checkSegmentAccess(segment, offset, 4, false))
+        return false;
     return readMem32(offset + getSegmentOffset(segment), data);
 }
 
