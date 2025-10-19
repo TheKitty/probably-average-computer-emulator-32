@@ -4775,7 +4775,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 // peek might fault first
                 uint32_t newCS;
-                if(!peek(operandSize32, 1, newCS) || !checkSegmentSelector(Reg16::CS, newCS))
+                if(!peek(operandSize32, 1, newCS) || !checkSegmentSelector(Reg16::CS, newCS, cpl))
                     break;
             }
 
@@ -4883,7 +4883,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     break; // whoops stack fault
 
                 // not a segment selector if we're switching to virtual-8086 mode
-                if(!(newFlags & Flag_VM) && !checkSegmentSelector(Reg16::CS, newCS))
+                if(!(newFlags & Flag_VM) && !checkSegmentSelector(Reg16::CS, newCS, cpl))
                     break;
             }
 
@@ -5406,7 +5406,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             if(isProtectedMode() && !(flags & Flag_VM))
             {
-                if(!checkSegmentSelector(Reg16::CS, newCS, true))
+                if(!checkSegmentSelector(Reg16::CS, newCS, cpl, true))
                     break;
 
                 auto newDesc = loadSegmentDescriptor(newCS);
@@ -6431,7 +6431,7 @@ CPU::SegmentDescriptor CPU::loadSegmentDescriptor(uint16_t selector)
 }
 
 // if this returns false we faulted
-bool CPU::checkSegmentSelector(Reg16 r, uint16_t value, bool allowSys)
+bool CPU::checkSegmentSelector(Reg16 r, uint16_t value, unsigned cpl, bool allowSys)
 {
     // check limit
     auto limit = (value & 4)/*local*/ ? ldtLimit : gdtLimit;
@@ -6541,7 +6541,7 @@ bool CPU::setSegmentReg(Reg16 r, uint16_t value)
 {
     if(isProtectedMode() && !(flags & Flag_VM))
     {
-        if(!checkSegmentSelector(r, value))
+        if(!checkSegmentSelector(r, value, cpl))
             return false;
         
         getCachedSegmentDescriptor(r) = loadSegmentDescriptor(value);
