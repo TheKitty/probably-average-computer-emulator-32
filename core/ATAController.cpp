@@ -21,6 +21,7 @@ enum ATAStatus
 enum class ATACommand
 {
     DEVICE_RESET           = 0x08,
+    RECALIBRATE            = 0x10,
     READ_SECTOR            = 0x20,
     WRITE_SECTOR           = 0x30,
     PACKET                 = 0xA0,
@@ -209,6 +210,15 @@ void ATAController::write(uint16_t addr, uint8_t data)
                     }
                     else
                         status |= Status_ERR;
+                    break;
+
+                case ATACommand::RECALIBRATE:
+                    lbaLowSector = 0;
+                    lbaMidCylinderLow = 0;
+                    lbaHighCylinderHigh = 0;
+                    deviceHead &= 0xF0;
+
+                    flagIRQ();
                     break;
 
                 case ATACommand::READ_SECTOR:
