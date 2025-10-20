@@ -6170,7 +6170,7 @@ bool RAM_FUNC(CPU::readMem32)(uint32_t offset, uint32_t &data)
 bool RAM_FUNC(CPU::writeMem8)(uint32_t offset, uint8_t data)
 {
     uint32_t physAddr;
-    if(!getPhysicalAddress(offset, physAddr))
+    if(!getPhysicalAddress(offset, physAddr, true))
         return false;
 
     sys.writeMem(physAddr, data);
@@ -6180,7 +6180,7 @@ bool RAM_FUNC(CPU::writeMem8)(uint32_t offset, uint8_t data)
 bool RAM_FUNC(CPU::writeMem16)(uint32_t offset, uint16_t data)
 {
     uint32_t physAddr;
-    if(!getPhysicalAddress(offset, physAddr))
+    if(!getPhysicalAddress(offset, physAddr, true))
         return false;
 
     sys.writeMem(physAddr, data & 0xFF);
@@ -6191,7 +6191,7 @@ bool RAM_FUNC(CPU::writeMem16)(uint32_t offset, uint16_t data)
 bool RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t data)
 {
     uint32_t physAddr;
-    if(!getPhysicalAddress(offset, physAddr))
+    if(!getPhysicalAddress(offset, physAddr, true))
         return false;
 
     sys.writeMem(physAddr + 0, data & 0xFF);
@@ -6201,7 +6201,7 @@ bool RAM_FUNC(CPU::writeMem32)(uint32_t offset, uint32_t data)
     return true;
 }
 
-bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr)
+bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrite)
 {
     // paging not enabled
     if(!(reg(Reg32::CR0) & (1 << 31)))
@@ -6209,6 +6209,12 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr)
         physAddr = virtAddr;
         return true;
     }
+
+    auto pageFault = [this](bool protection, bool write, uint32_t virtAddr)
+    {
+        reg(Reg32::CR2) = virtAddr;
+        fault(Fault::PF, (protection ? 1 : 0) | (write ? 2 : 0) | (cpl == 3 ? 4 : 0));
+    };
 
     auto dir = virtAddr >> 22;
     auto page = (virtAddr >> 12) & 0x3FF;
@@ -6220,7 +6226,19 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr)
                       | sys.readMem(dirEntryAddr + 2) << 16
                       | sys.readMem(dirEntryAddr + 3) << 24;
 
-    assert(dirEntry & 1); // FIXME: page fault
+    // not present
+    if(!(dirEntry & 1))
+    {
+        pageFault(false, forWrite, virtAddr);
+        return false;
+    }
+
+    // writable
+    if(forWrite && !(dirEntry & (1 << 1)))
+    {
+        pageFault(true, forWrite, virtAddr);
+        return false;
+    }
 
     // page table
     auto pageEntryAddr = (dirEntry & 0xFFFFF000) + page * 4;
@@ -6230,8 +6248,19 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr)
                        | sys.readMem(pageEntryAddr + 2) << 16
                        | sys.readMem(pageEntryAddr + 3) << 24;
 
-    assert(pageEntry & 1); // FIXME: page fault
-    // FIXME: check writable
+    if(!(pageEntry & 1))
+    {
+        pageFault(false, forWrite, virtAddr);
+        return false;
+    }
+
+    // writable
+    if(forWrite && !(pageEntry & (1 << 1)))
+    {
+        pageFault(true, forWrite, virtAddr);
+        return false;
+    }
+
     // FIXME: check user/supervisor
     // FIXME: set dirty/accessed
 
