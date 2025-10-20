@@ -4,6 +4,11 @@
 
 #include "ATAController.h"
 
+enum ATAError
+{
+    Error_ABRT = 1 << 2, // aborted
+};
+
 enum ATAStatus
 {
     Status_ERR  = 1 << 0, // error
@@ -69,10 +74,10 @@ uint8_t ATAController::read(uint16_t addr)
     switch(addr & ~(1 << 7))
     {
         /*
-        case 0x171: // error
-
         case 0x377: // device address
         */
+        case 0x171:
+            return error;
         case 0x172: // sector count
             return sectorCount;
         case 0x173: // lba low/sector
@@ -184,13 +189,14 @@ void ATAController::write(uint16_t addr, uint8_t data)
             int dev = (deviceHead >> 4) & 1;
 
             status &= ~Status_ERR;
+            error = 0;
 
             switch(static_cast<ATACommand>(data))
             {
                 case ATACommand::DEVICE_RESET:
                     if(io && io->isATAPI(dev))
                     {
-                        // error = 1; // passed (or not present)
+                        error = 1; // passed (or not present)
                         // signature
                         sectorCount = 1;
                         lbaLowSector = 1;
@@ -303,14 +309,20 @@ void ATAController::write(uint16_t addr, uint8_t data)
                         status |= Status_DRQ;
                     }
                     else
+                    {
                         status |= Status_ERR;
+                        error = Error_ABRT;
+                    }
                     break;
 
                 case ATACommand::IDENTIFY_DEVICE:
                     if(io && io->getNumSectors(dev))
                     {
                         if(io->isATAPI(dev))
+                        {
                             status |= Status_ERR;
+                            error = Error_ABRT;
+                        }
                         else
                         {
                             fillIdentity(dev);
@@ -327,6 +339,7 @@ void ATAController::write(uint16_t addr, uint8_t data)
                 default:
                     printf("ATA command %02X (dev %i)\n", data, dev);
                     status |= Status_ERR;
+                    error = Error_ABRT;
             }
             break;
         }
@@ -661,7 +674,7 @@ void ATAController::doATAPICommand(int device)
         default:
             printf("ATAPI command %02X\n", sectorBuf[0]);
 
-            // error = 1 << 2/*ABRT*/;
+            error = Error_ABRT;
             status |= Status_ERR; // ATAPI CHK bit
 
             sectorCount = (1 << 0)  // command

@@ -48,6 +48,7 @@ private:
 
     System &sys;
 
+    uint8_t error;
     uint8_t features;
     uint8_t sectorCount;
     uint8_t lbaLowSector; // LBA low or sector
