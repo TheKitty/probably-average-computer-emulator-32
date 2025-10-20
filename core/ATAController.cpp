@@ -542,7 +542,7 @@ void ATAController::doATAPICommand(int device)
             bufOffset = 0;
 
             sectorBuf[0] = 1 << 7 | 0x70; // valid, current error
-            sectorBuf[1] = static_cast<uint8_t>(SCSISenseKey::ILLEGAL_REQUEST); // so far we only return an error if the command is not supported
+            sectorBuf[2] = static_cast<uint8_t>(SCSISenseKey::ILLEGAL_REQUEST); // so far we only return an error if the command is not supported
 
             sectorBuf[7] = 0; // no additional length
             
@@ -674,7 +674,7 @@ void ATAController::doATAPICommand(int device)
         default:
             printf("ATAPI command %02X\n", sectorBuf[0]);
 
-            error = Error_ABRT;
+            error = Error_ABRT | int(SCSISenseKey::ILLEGAL_REQUEST) << 4;
             status |= Status_ERR; // ATAPI CHK bit
 
             sectorCount = (1 << 0)  // command
