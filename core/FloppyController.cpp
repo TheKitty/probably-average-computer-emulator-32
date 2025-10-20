@@ -94,8 +94,15 @@ void FloppyController::write(uint16_t addr, uint8_t data)
                 else if(data == 0x0F)
                     commandLen = 3;
                 else
+                {
                     printf("FCD = %02X\n", data);
 
+                    // return an error
+                    status[0] = 1 << 7; // invalid command
+                    resultLen = 1;
+                    result[0] = status[0];
+                    resultOff = 0;
+                }
                 if(commandLen)
                     commandOff = 1;
             }
