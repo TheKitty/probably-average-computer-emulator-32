@@ -24,6 +24,7 @@ enum class ATACommand
     RECALIBRATE            = 0x10,
     READ_SECTOR            = 0x20,
     WRITE_SECTOR           = 0x30,
+    INIT_DEVICE_PARAMS     = 0x91, // "INITIALISE DEVICE PARAMETERS"
     PACKET                 = 0xA0,
     IDENTIFY_PACKET_DEVICE = 0xA1,
     IDENTIFY_DEVICE        = 0xEC,
@@ -286,6 +287,22 @@ void ATAController::write(uint16_t addr, uint8_t data)
 
                         status &= ~Status_DRDY;
                         status |= Status_DRQ;
+                    }
+                    break;
+                }
+                case ATACommand::INIT_DEVICE_PARAMS:
+                {
+                    int head = (deviceHead) & 0xF;
+                    if(sectorCount == sectorsPerTrack[dev] && head == numHeads[dev] - 1)
+                    {
+                        // no change, allow it
+                        flagIRQ();
+                    }
+                    else
+                    {
+                        // abort
+                        status |= Status_ERR;
+                        error = Error_ABRT;
                     }
                     break;
                 }
