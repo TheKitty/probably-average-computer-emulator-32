@@ -4961,7 +4961,7 @@ void RAM_FUNC(CPU::executeInstruction)()
         }
 
         case 0xCC: // INT 3
-            serviceInterrupt(3);
+            serviceInterrupt(3, true);
             break;
 
         case 0xCD: // INT
@@ -4971,14 +4971,14 @@ void RAM_FUNC(CPU::executeInstruction)()
                 return;
 
             reg(Reg32::EIP)++;
-            serviceInterrupt(imm);
+            serviceInterrupt(imm, true);
             break;
         }
 
         case 0xCE: // INTO
         {
             if(flags & Flag_O)
-                serviceInterrupt(0x4); // OF
+                serviceInterrupt(0x4, true); // OF
             break;
         }
 
@@ -7614,7 +7614,7 @@ bool CPU::taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource sourc
     return true;
 }
 
-void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector)
+void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector, bool isInt)
 {
     bool stackAddrSize32 = isStackAddressSize32();
 

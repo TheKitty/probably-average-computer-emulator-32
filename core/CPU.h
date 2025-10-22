@@ -202,7 +202,7 @@ private:
 
     bool taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource source);
 
-    void serviceInterrupt(uint8_t vector);
+    void serviceInterrupt(uint8_t vector, bool isInt = false);
 
     void fault(Fault fault);
     void fault(Fault fault, uint32_t code);
