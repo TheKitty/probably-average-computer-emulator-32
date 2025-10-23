@@ -169,7 +169,21 @@ uint8_t VGACard::read(uint16_t addr)
 
         case 0x3C0: // attribute address
             return attributeIndex;
+        case 0x3C1: // attribute data (read)
+        {
+            int index = attributeIndex & 0x1F;
+    
+            if(index < 0x10)
+                return attribPalette[index];
+            else if(index == 0x10)
+                return attribMode;
+            else if(index == 0x12)
+                return attribPlaneEnable;
+            else
+                printf("VGA R attrib %02X\n", index);
 
+            return 0xFF;
+        }
         case 0x3C4: // sequencer address
             return sequencerIndex;
         case 0x3C5: // sequencer data
