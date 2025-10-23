@@ -6626,6 +6626,11 @@ CPU::SegmentDescriptor CPU::loadSegmentDescriptor(uint16_t selector)
     // FIXME: privilege
     
     auto addr = (selector >> 3) * 8;
+    
+    auto limit = local ? ldtLimit : gdtLimit;
+
+    if(addr + 7 > limit)
+        return {};
 
     if(local)
         addr += ldtBase;
