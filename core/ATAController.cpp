@@ -27,6 +27,7 @@ enum class ATACommand
     INIT_DEVICE_PARAMS     = 0x91, // "INITIALISE DEVICE PARAMETERS"
     PACKET                 = 0xA0,
     IDENTIFY_PACKET_DEVICE = 0xA1,
+    IDLE_IMMEDIATE         = 0xE1,
     IDENTIFY_DEVICE        = 0xEC,
     SET_FEATURES           = 0xEF,
 };
@@ -343,6 +344,13 @@ void ATAController::write(uint16_t addr, uint8_t data)
                         error = Error_ABRT;
                     }
                     break;
+
+                case ATACommand::IDLE_IMMEDIATE:
+                {
+                    // yep, we're idling. much power is being saved. 100%
+                    flagIRQ();
+                    break;
+                }
 
                 case ATACommand::IDENTIFY_DEVICE:
                     if(io && io->getNumSectors(dev))
