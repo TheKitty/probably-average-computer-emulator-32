@@ -803,6 +803,26 @@ void Chipset::flagPICInterrupt(int index)
     pic[picIndex].request |= 1 << index;
 }
 
+void Chipset::setPICInput(int index, bool state)
+{
+    // remap
+    if(index == 2)
+        index = 9;
+
+    int picIndex = index / 8;
+    index &= 7;
+
+    int bitMask = 1 << index;
+
+    if(state)
+        pic[picIndex].inputs |= bitMask;
+    else
+        pic[picIndex].inputs &= ~bitMask;
+
+    // update request for unmasked inputs
+    pic[picIndex].request |= pic[picIndex].inputs & ~pic[picIndex].mask;
+}
+
 uint8_t Chipset::acknowledgeInterrupt()
 {
     auto serviceable = pic[0].request & ~pic[0].mask;
@@ -1052,7 +1072,12 @@ void Chipset::PIC::write(int index, uint8_t data)
             nextInit = 0;
         }
         else // mask
+        {
             mask = data;
+
+            // update request for any inputs that were active when unmasked
+            request |= inputs & ~mask;
+        }
     }
 }
 

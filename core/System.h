@@ -59,6 +59,7 @@ public:
     uint8_t getPICMask() const {return pic[0].mask;}
 
     void flagPICInterrupt(int index);
+    void setPICInput(int index, bool state);
     uint8_t acknowledgeInterrupt();
 
     // 8042
