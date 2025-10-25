@@ -650,7 +650,7 @@ void ATAController::doATAPICommand(int device)
 
             assert(pioReadLen == 8);
 
-            uint32_t numSectors = io->getNumSectors(device);
+            uint32_t numSectors = io->getNumSectors(device) - 1; // this is the LBA of the last sector
             uint32_t sectorSize = 2048;
 
             sectorBuf[0] = numSectors >> 24;
