@@ -6929,11 +6929,24 @@ bool CPU::checkSegmentAccess(Reg16 segment, uint32_t offset, int width, bool wri
         return true;
     }
 
-    // check limit (also check for overflow)
-    if(offset + width - 1 > desc.limit || offset > 0xFFFFFFFF - (width - 1))
+    if(!(desc.flags & SD_Executable) && (desc.flags & SD_DirConform))
     {
-        fault(segment == Reg16::SS ? Fault::SS : Fault::GP, 0);
-        return false;
+        // check downward limit
+        // is overflow check correct here?
+        if(offset + width - 1 <= desc.limit || offset > 0xFFFFFFFF - (width - 1))
+        {
+            fault(segment == Reg16::SS ? Fault::SS : Fault::GP, 0);
+            return false;
+        }
+    }
+    else
+    {
+        // check limit (also check for overflow)
+        if(offset + width - 1 > desc.limit || offset > 0xFFFFFFFF - (width - 1))
+        {
+            fault(segment == Reg16::SS ? Fault::SS : Fault::GP, 0);
+            return false;
+        }
     }
 
     // nothing else to check in real mode
