@@ -727,16 +727,16 @@ void ATAController::doATAPICommand(int device)
         case SCSICommand::READ_TOC:
         {
             bool msf = sectorBuf[1] & (1 << 1);
-            int format = sectorBuf[2] & 0xF;
+            int format = sectorBuf[9] >> 6; // new specs say this is the lower half of the second byte
             uint8_t trackSession = sectorBuf[6];
 
             // clamp to requested len
-            int len = trackSession == 0xAA ? 12 : 20;
+            int len = trackSession == 0xAA || format == 1 ? 12 : 20;
             pioReadLen = std::min(lbaMidCylinderLow | lbaHighCylinderHigh << 8, len);
             pioReadSectors = 0;
             bufOffset = 0;
 
-            assert(format == 0);
+            assert(format < 2);
 
             // data
             if(format == 0)
@@ -783,6 +783,26 @@ void ATAController::doATAPICommand(int device)
                 // lead out track
                 addTrack(trackPtr, 0xAA, io->getNumSectors(device));
             }
+            else if(format == 1) // session info
+            {
+                // claim we have one session
+                sectorBuf[0] = 0;
+                sectorBuf[1] = len - 2; // data length
+
+                sectorBuf[2] = sectorBuf[3] = 1; // first/last track
+
+                auto trackPtr = sectorBuf + 4;
+
+                trackPtr[0] = 0; // reserved
+                trackPtr[1] = 0x14; // ADR = position data, CONTROL = data track
+                trackPtr[2] = 1; // first track number in last session
+                trackPtr[3] = 0; // reserved
+
+                // address
+                trackPtr[4] = trackPtr[5] = trackPtr[7] = 0;
+                trackPtr[6] = msf ? 2 : 0; // this is the 150 offset
+            }
+            // else error
 
             status |= Status_DRQ;
 
