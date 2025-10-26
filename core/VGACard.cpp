@@ -217,7 +217,8 @@ uint8_t VGACard::read(uint16_t addr)
                     return gfxSetReset;
                 case 1: // enable set/reset
                     return gfxEnableSetRes;
-                
+                case 2: // colour compare
+                    return colourCompare;
                 case 3: // data rotate
                     return gfxDataRotate;
                 case 4: // read sel
@@ -226,7 +227,8 @@ uint8_t VGACard::read(uint16_t addr)
                     return gfxMode;
                 case 6: // misc
                     return gfxMisc;
-                
+                case 7: // colour don't care
+                    return colourDontCare;
                 case 8: // bit mask
                     return gfxBitMask;
                 default:
@@ -336,6 +338,9 @@ void VGACard::write(uint16_t addr, uint8_t data)
                 case 1: // enable set/reset
                     gfxEnableSetRes = data;
                     break;
+                case 2: // colour compare
+                    colourCompare = data;
+                    break;
                 case 3: // data rotate (also logic op)
                     gfxDataRotate = data;
                     break;
@@ -350,13 +355,14 @@ void VGACard::write(uint16_t addr, uint8_t data)
                     if(changed & (1 << 4)) // host odd/even
                         setupMemory();
 
-                    if(gfxMode & (1 << 3))
-                        printf("VGA read mode 1\n");
                     break;
                 }
                 case 6: // misc
                     gfxMisc = data;
                     setupMemory();
+                    break;
+                case 7: // colour don't care
+                    colourDontCare = data;
                     break;
                 case 8: // bit mask
                     gfxBitMask = data;
@@ -430,6 +436,7 @@ uint8_t VGACard::readMem(uint32_t addr)
     bool chain = gfxMisc & (1 << 1);
     int map = (gfxMisc >> 2) & 3;
     bool oddEven = gfxMode & (1 << 4);
+    int readMode = (gfxMode >> 3) & 1;
 
     int plane = gfxReadSel;
     int planeAddr = addr & 0xFFFF;
@@ -455,6 +462,27 @@ uint8_t VGACard::readMem(uint32_t addr)
     // load latches
     for(int i = 0; i < 4; i++)
         latch[i] = ram[mappedAddr + i * 0x10000];
+
+    if(readMode)
+    {
+        // all planes disabled, so all pixels match
+        if(!colourDontCare)
+            return 0xFF;
+
+        uint8_t res = 0xFF;
+
+        for(int i = 0; i < 4; i++)
+        {
+            if(colourDontCare & (1 << i))
+            {
+                int v = (colourCompare >> i) & 1;
+                // mask out any bit that doesn't match the value for this plane
+                res &= (v * 0xFF) ^ latch[plane];
+            }
+        }
+
+        return res;
+    }
 
     return latch[plane];
 }
