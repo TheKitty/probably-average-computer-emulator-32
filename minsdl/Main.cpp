@@ -408,8 +408,9 @@ int main(int argc, char *argv[])
     int screenWidth = 640;
     int screenHeight = 480;
     // mode might be 640x480 or 720x400
-    int textureWidth = 720;
-    int textureHeight = 480;
+    // ... or even 800x600
+    int textureWidth = 800;
+    int textureHeight = 600;
     int screenScale = 2;
 
     std::string biosPath = "bios.bin";
