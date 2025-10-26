@@ -4945,6 +4945,15 @@ void RAM_FUNC(CPU::executeInstruction)()
                     checkSeg(Reg16::DS);
                     checkSeg(Reg16::FS);
                     checkSeg(Reg16::GS);
+
+                    if(opcode == 0xCA)
+                    {
+                        // add imm to the _other_ SP
+                        if(isStackAddressSize32())
+                            reg(Reg32::ESP) += imm;
+                        else
+                            reg(Reg16::SP) += imm;
+                    }
                 }
                 else // same privilege
                 {
