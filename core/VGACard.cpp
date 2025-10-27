@@ -19,6 +19,8 @@ void VGACard::drawScanline(int line, uint8_t *output)
         output++;
     };
 
+    lastOutputLine = line;
+
     // check for scan double
     if(crtcRegs[0x9] & 0x80)
         line /= 2;
@@ -163,9 +165,10 @@ uint8_t VGACard::read(uint16_t addr)
 
         case 0x3BA: // input status 1
         case 0x3DA:
-            printf("VGA R status 1\n");
             attributeIsData = false; // resets here
-            return 0xFF;
+
+            // claim we're in vblank between drawing last line and going back to first
+            return lastOutputLine == outputW - 1 ? 0x9 : 0;
 
         case 0x3C0: // attribute address
             return attributeIndex;

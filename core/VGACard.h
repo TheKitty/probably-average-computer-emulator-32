@@ -80,6 +80,7 @@ private:
     uint8_t latch[4];
 
     int outputW = 0, outputH = 0;
+    int lastOutputLine = 0;
 
     uint8_t ram[256 * 1024];
 };
