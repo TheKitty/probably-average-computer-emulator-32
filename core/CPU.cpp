@@ -1101,28 +1101,34 @@ void RAM_FUNC(CPU::executeInstruction)()
                             if(!readRM16(modRM, selector, addr + 1))
                                 break;
 
-                            auto desc = loadSegmentDescriptor(selector);
+                            SegmentDescriptor desc;
+                            bool validDesc = false;
 
-                            // privileges
-                            int rpl = selector & 3;
-                            int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
+                            if(selector >= 4)
+                            {
+                                desc = loadSegmentDescriptor(selector);
 
-                            // no priv checks for conforming code segment
-                            bool isConformingCode = (desc.flags & (SD_Type | SD_DirConform | SD_Executable)) == (SD_Type | SD_DirConform | SD_Executable);
+                                // privileges
+                                int rpl = selector & 3;
+                                int dpl = (desc.flags & SD_PrivilegeLevel) >> 21;
 
-                            bool validDesc = isConformingCode || (cpl <= dpl && rpl <= dpl);
+                                // no priv checks for conforming code segment
+                                bool isConformingCode = (desc.flags & (SD_Type | SD_DirConform | SD_Executable)) == (SD_Type | SD_DirConform | SD_Executable);
 
-                            // has to be data/code segment
-                            if(!(desc.flags & SD_Type))
-                                validDesc = false;
+                                validDesc = isConformingCode || (cpl <= dpl && rpl <= dpl);
 
-                            // code segments may not be readable, but data segments always are
-                            if(exOp == 0x4 && (desc.flags & SD_Executable) && !(desc.flags & SD_ReadWrite))
-                                validDesc = false;
+                                // has to be data/code segment
+                                if(!(desc.flags & SD_Type))
+                                    validDesc = false;
 
-                            // code segments aren't writable, data segments may be
-                            if(exOp == 0x5 && ((desc.flags & SD_Executable) || !(desc.flags & SD_ReadWrite)))
-                                validDesc = false;
+                                // code segments may not be readable, but data segments always are
+                                if(exOp == 0x4 && (desc.flags & SD_Executable) && !(desc.flags & SD_ReadWrite))
+                                    validDesc = false;
+
+                                // code segments aren't writable, data segments may be
+                                if(exOp == 0x5 && ((desc.flags & SD_Executable) || !(desc.flags & SD_ReadWrite)))
+                                    validDesc = false;
+                            }
 
                             if(validDesc)
                                 flags |= Flag_Z;
