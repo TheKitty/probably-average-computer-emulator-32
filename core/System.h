@@ -70,6 +70,8 @@ public:
 
     void syncMouse();
 
+    bool getA20() const {return i8042OutputPort & (1 << 1);}
+
     // PIT/speaker
     void setSpeakerAudioCallback(SpeakerAudioCallback cb);
 

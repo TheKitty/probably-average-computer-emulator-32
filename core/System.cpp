@@ -634,6 +634,10 @@ void Chipset::write(uint16_t addr, uint8_t data)
 
         case 0x92: // system control port A
             systemControlA = data;
+
+            // bit 0/1 are also reset/a20
+            i8042OutputPort = (i8042OutputPort & ~3) | (data & 3);
+
             break;
 
         case 0xA0: // second PIC ICW1, OCW 2/3
@@ -1316,6 +1320,9 @@ uint8_t RAM_FUNC(System::readMem)(uint32_t addr)
     if(addr >= maxAddress)
         return 0xFF;
 
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
+
     auto block = addr / blockSize;
     
     auto ptr = memMap[block];
@@ -1334,6 +1341,9 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
 {
     if(addr >= maxAddress)
         return;
+
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
 
     auto block = addr / blockSize;
 
