@@ -90,6 +90,9 @@ public:
 
     void executeInstruction();
 
+    // returns CS, IP, virt addr
+    std::tuple<uint16_t, uint32_t, uint32_t> getOpStartAddr();
+
 private:
     enum class Fault
     {

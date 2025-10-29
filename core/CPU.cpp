@@ -6366,6 +6366,12 @@ void RAM_FUNC(CPU::executeInstruction)()
     }
 }
 
+std::tuple<uint16_t, uint32_t, uint32_t> CPU::getOpStartAddr()
+{
+    auto addr = faultIP + getSegmentOffset(Reg16::CS);
+    return {reg(Reg16::CS), faultIP, addr};
+}
+
 bool RAM_FUNC(CPU::readMem8)(uint32_t offset, Reg16 segment, uint8_t &data)
 {
     if(!checkSegmentAccess(segment, offset, 1, false))
