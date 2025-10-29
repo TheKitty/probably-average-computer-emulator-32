@@ -599,6 +599,14 @@ void RAM_FUNC(CPU::executeInstruction)()
     bool operandSizeOverride = false;
     addressSizeOverride = false;
 
+    // tracing
+    if(trace.isEnabled())
+    {
+        uint32_t physAddr = 0;
+        getPhysicalAddress(addr, physAddr); // shouldn't fault, we just read from it
+        trace.addEntry(addr, physAddr, opcode, isOperandSize32(false), regs, flags);
+    }
+
     // prefixes
     while(true)
     {
@@ -6370,6 +6378,11 @@ std::tuple<uint16_t, uint32_t, uint32_t> CPU::getOpStartAddr()
 {
     auto addr = faultIP + getSegmentOffset(Reg16::CS);
     return {reg(Reg16::CS), faultIP, addr};
+}
+
+void CPU::dumpTrace()
+{
+    trace.dump();
 }
 
 bool RAM_FUNC(CPU::readMem8)(uint32_t offset, Reg16 segment, uint8_t &data)

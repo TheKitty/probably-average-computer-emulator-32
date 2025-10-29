@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <tuple>
 
+#include "CPUTrace.h"
+
 class System;
 
 class CPU final
@@ -92,6 +94,8 @@ public:
 
     // returns CS, IP, virt addr
     std::tuple<uint16_t, uint32_t, uint32_t> getOpStartAddr();
+
+    void dumpTrace();
 
 private:
     enum class Fault
