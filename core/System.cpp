@@ -1266,6 +1266,30 @@ void Chipset::write8042DeviceData(uint8_t data, int devIndex)
     }
 }
 
+void Chipset::update8042Interrupt()
+{
+    if(i8042Queue.empty())
+    {
+        setPICInput(1, false);
+        setPICInput(12, false);
+    }
+    else
+    {
+        bool firstInt = false, secondInt = false;
+    
+        // flag interrupt based on which is first in the queue
+        // TODO: having data for a disabled port would be bad?
+        bool isSecondPort = i8042Queue.peek() >> 8;
+        if((i8042Configuration & (1 << 0)) && !isSecondPort)
+            firstInt = true;
+        else if((i8042Configuration & (1 << 1)) && isSecondPort)
+            secondInt = true;
+
+        setPICInput(1, firstInt);
+        setPICInput(12, secondInt);
+    }
+}
+
 System::System() : cpu(*this), chipset(*this)
 {
     addIODevice(0xFF00, 0, 1 << 0 | 1 << 1, &chipset);
