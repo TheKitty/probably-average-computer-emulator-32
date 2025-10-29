@@ -8053,7 +8053,7 @@ void RAM_FUNC(CPU::serviceInterrupt)(uint8_t vector, bool isInt)
         // check DPL for INT
         if(isInt && gateDPL < cpl)
         {
-            fault(Fault::GP, addr | 2/*IDT*/);
+            fault(Fault::GP, vector << 3 | 2/*IDT*/);
             return;
         }
 
