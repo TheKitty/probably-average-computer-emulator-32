@@ -145,6 +145,11 @@ private:
     void calculateNextPITUpdate();
     void updateSpeaker(uint32_t target);
 
+    void write8042ControllerCommand(uint8_t data);
+    void write8042ControllerData(uint8_t data);
+    void write8042DeviceCommand(uint8_t data, int devIndex);
+    void write8042DeviceData(uint8_t data, int devIndex);
+
     System &sys;
 
     DMA dma;

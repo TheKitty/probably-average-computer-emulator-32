@@ -417,147 +417,13 @@ void Chipset::write(uint16_t addr, uint8_t data)
             i8042WriteSecondPort = false;
 
             if(i8042ControllerCommand)
-            {
-                switch(i8042ControllerCommand)
-                {
-                    case 0x60: // write config byte
-                        printf("8042 cfg %02X\n", data);
-                        i8042Configuration = data;
-                        break;
-
-                    case 0xD1:
-                        printf("8042 output %02X\n", data);
-                        i8042OutputPort = data;
-                        break;
-                    case 0xD2: // first port echo
-                        i8042Queue.push(data);
-                        break;
-                    case 0xD3: // second port echo
-                        i8042Queue.push(1 << 8 | data);
-                        break;
-                }
-
-                i8042ControllerCommand = 0;
-                break;
-            }
+                write8042ControllerData(data);
             else if(devIndex == 0 && i8042DeviceCommand[0])
-            {
-                // assume first is keyboard
-                switch(i8042DeviceCommand[0])
-                {
-                    case 0xED: // set LEDs
-                        printf("8042 set keyboard leds %x\n", data);
-                        i8042Queue.push(0xFA); // ACK
-                        break;
-    
-                    case 0xF0: // get/set scancode set
-                        switch(data)
-                        {
-                            case 0:
-                                i8042Queue.push(0xFA); // ACK
-                                i8042Queue.push(0x41); // set 2 (TODO) (also this is translated)
-                                break;
-
-                            case 1:
-                            case 2:
-                            case 3:
-                                printf("8042 scancode set %i\n", data);
-                                i8042Queue.push(0xFA); // ACK
-                                break;
-                        }
-                        break;
-                    
-                    case 0xF3: // typematic
-                    {
-                        auto rate = data & 0x1F;
-                        auto delay = (data >> 5) & 3;
-
-                        printf("8042 typematic rate %i delay %i\n", rate, delay);
-
-                        i8042Queue.push(0xFA); // ACK
-                        break;
-                    }
-                }
-
-                i8042DeviceCommand[0] = 0;
-                break;
-            }
+                write8042DeviceData(data, devIndex);
             else if(devIndex == 1 && i8042DeviceCommand[1])
-            {
-                // assume second is mouse
-                switch(i8042DeviceCommand[1])
-                {
-                    case 0xE8: // set resolution
-                        printf("8042 mouse resolution %i\n", data);
-                        i8042Queue.push(0x1FA); // ACK
-                        break;
-
-                    case 0xF3: // set sample rate
-                        printf("8042 mouse sample rate %i\n", data);
-                        i8042Queue.push(0x1FA); // ACK
-                        break;
-                }
-
-                i8042DeviceCommand[1] = 0;
-                break;
-            }
-
-            switch(data)
-            {
-                case 0xE6: // set scaling 1:1
-                    if(devIndex == 1)
-                        i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    break;
-
-                case 0xE8: // resolution
-                    if(devIndex == 1)
-                    {
-                        i8042DeviceCommand[1] = data;
-                        i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    }
-                    break;
-
-                case 0xED: // set LEDs
-                case 0xF0: // get/set code set
-                    if(devIndex == 0)
-                    {
-                        i8042DeviceCommand[0] = data;
-                        i8042Queue.push(0xFA); // ACK
-                    }
-                    else
-                        printf("8042 dat %02X (dev %i)\n", data, devIndex);
-                    break;
-
-                case 0xF2: // identify
-                    i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    if(devIndex)
-                        i8042Queue.push(0x00 | devIndex << 8); // mouse ID
-                    break;
-                case 0xF3: // typematic (keyboard)/ sample rate (mouse)
-                    i8042DeviceCommand[devIndex] = data;
-                    i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    break;
-                case 0xF4: // enable sending
-                    i8042DeviceSendEnabled |= (1 << devIndex);
-                    i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    break;
-                case 0xF5: // disable sending
-                    i8042DeviceSendEnabled &= ~(1 << devIndex);
-                    i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    break;
-
-                case 0xFF: // reset and test
-                    i8042Queue.push(0xFA | devIndex << 8); // ACK
-                    i8042Queue.push(0xAA | devIndex << 8); // passed
-
-                    // device id for mouse
-                    if(devIndex == 1)
-                        i8042Queue.push(0x00 | devIndex << 8);
-                    break;
-
-                default:
-                    printf("8042 dat %02X (dev %i)\n", data, devIndex);
-            }
+                write8042DeviceData(data, devIndex);
+            else
+                write8042DeviceCommand(data, devIndex);
             break;
         }
 
@@ -566,48 +432,8 @@ void Chipset::write(uint16_t addr, uint8_t data)
             break;
 
         case 0x64: // 8042 command
-        {
-            switch(data)
-            {
-                case 0x20: // read config
-                    i8042Queue.push(i8042Configuration);
-                    break;
-                case 0x60: // write config byte
-                case 0xD1: // write output port
-                case 0xD2: // next byte to first port output (as if it came from the device)
-                case 0xD3: // next byte to second port output
-                    i8042ControllerCommand = data;
-                    break;
-                case 0xA7: // disable second port
-                    i8042PortEnabled &= ~(1 << 1);
-                    break;
-                case 0xA8: // enable second port
-                    i8042PortEnabled |= (1 << 1);
-                    break;
-                case 0xAA: // controller test
-                    i8042PortEnabled |= (3 << 0); //?
-                    i8042Queue.push(0x55); // pass
-                    break;
-                case 0xAB: // first port test
-                    i8042Queue.push(0); // pass
-                    break;
-                case 0xAD: // disable first port
-                    i8042PortEnabled &= ~(1 << 0);
-                    break;
-                case 0xAE: // enable first port
-                    i8042PortEnabled |= (1 << 0);
-                    break;
-                case 0xD0: // read output port
-                    i8042Queue.push(i8042OutputPort);
-                    break;
-                case 0xD4: // next byte to second port
-                    i8042WriteSecondPort = true;
-                    break;
-                default:
-                    printf("8042 cmd %02X\n", data);
-            }
+            write8042ControllerCommand(data);
             break;
-        }
 
         case 0x70: // CMOS index
         {
@@ -1252,6 +1078,200 @@ void Chipset::updateSpeaker(uint32_t target)
 
         if(speakerCb)
             speakerCb(value ? 127 : -128);
+    }
+}
+
+// port 64
+void Chipset::write8042ControllerCommand(uint8_t data)
+{
+    switch(data)
+    {
+        case 0x20: // read config
+            i8042Queue.push(i8042Configuration);
+            break;
+        case 0x60: // write config byte
+        case 0xD1: // write output port
+        case 0xD2: // next byte to first port output (as if it came from the device)
+        case 0xD3: // next byte to second port output
+            i8042ControllerCommand = data;
+            break;
+        case 0xA7: // disable second port
+            i8042PortEnabled &= ~(1 << 1);
+            break;
+        case 0xA8: // enable second port
+            i8042PortEnabled |= (1 << 1);
+            break;
+        case 0xAA: // controller test
+            i8042PortEnabled |= (3 << 0); //?
+            i8042Queue.push(0x55); // pass
+            break;
+        case 0xAB: // first port test
+            i8042Queue.push(0); // pass
+            break;
+        case 0xAD: // disable first port
+            i8042PortEnabled &= ~(1 << 0);
+            break;
+        case 0xAE: // enable first port
+            i8042PortEnabled |= (1 << 0);
+            break;
+        case 0xD0: // read output port
+            i8042Queue.push(i8042OutputPort);
+            break;
+        case 0xD4: // next byte to second port
+            i8042WriteSecondPort = true;
+            break;
+        default:
+            printf("8042 cmd %02X\n", data);
+    }
+}
+
+// port 60, if last command to 64 has data
+void Chipset::write8042ControllerData(uint8_t data)
+{
+    switch(i8042ControllerCommand)
+    {
+        case 0x60: // write config byte
+            printf("8042 cfg %02X\n", data);
+            i8042Configuration = data;
+            break;
+
+        case 0xD1:
+            printf("8042 output %02X\n", data);
+            i8042OutputPort = data;
+            break;
+        case 0xD2: // first port echo
+            i8042Queue.push(data);
+            break;
+        case 0xD3: // second port echo
+            i8042Queue.push(1 << 8 | data);
+            break;
+    }
+
+    i8042ControllerCommand = 0;
+}
+
+// port 60, if no command in progress
+void Chipset::write8042DeviceCommand(uint8_t data, int devIndex)
+{
+    switch(data)
+    {
+        case 0xE6: // set scaling 1:1
+            if(devIndex == 1)
+                i8042Queue.push(0xFA | devIndex << 8); // ACK
+            break;
+
+        case 0xE8: // resolution
+            if(devIndex == 1)
+            {
+                i8042DeviceCommand[1] = data;
+                i8042Queue.push(0xFA | devIndex << 8); // ACK
+            }
+            break;
+
+        case 0xED: // set LEDs
+        case 0xF0: // get/set code set
+            if(devIndex == 0)
+            {
+                i8042DeviceCommand[0] = data;
+                i8042Queue.push(0xFA); // ACK
+            }
+            else
+                printf("8042 dat %02X (dev %i)\n", data, devIndex);
+            break;
+
+        case 0xF2: // identify
+            i8042Queue.push(0xFA | devIndex << 8); // ACK
+            if(devIndex)
+                i8042Queue.push(0x00 | devIndex << 8); // mouse ID
+            break;
+        case 0xF3: // typematic (keyboard)/ sample rate (mouse)
+            i8042DeviceCommand[devIndex] = data;
+            i8042Queue.push(0xFA | devIndex << 8); // ACK
+            break;
+        case 0xF4: // enable sending
+            i8042DeviceSendEnabled |= (1 << devIndex);
+            i8042Queue.push(0xFA | devIndex << 8); // ACK
+            break;
+        case 0xF5: // disable sending
+            i8042DeviceSendEnabled &= ~(1 << devIndex);
+            i8042Queue.push(0xFA | devIndex << 8); // ACK
+            break;
+
+        case 0xFF: // reset and test
+            i8042Queue.push(0xFA | devIndex << 8); // ACK
+            i8042Queue.push(0xAA | devIndex << 8); // passed
+
+            // device id for mouse
+            if(devIndex == 1)
+                i8042Queue.push(0x00 | devIndex << 8);
+            break;
+
+        default:
+            printf("8042 dat %02X (dev %i)\n", data, devIndex);
+    }
+}
+
+// port 60, if last command to 60 has data
+void Chipset::write8042DeviceData(uint8_t data, int devIndex)
+{
+    if(devIndex == 0)
+    {
+        // assume first is keyboard
+        switch(i8042DeviceCommand[0])
+        {
+            case 0xED: // set LEDs
+                printf("8042 set keyboard leds %x\n", data);
+                i8042Queue.push(0xFA); // ACK
+                break;
+
+            case 0xF0: // get/set scancode set
+                switch(data)
+                {
+                    case 0:
+                        i8042Queue.push(0xFA); // ACK
+                        i8042Queue.push(0x41); // set 2 (TODO) (also this is translated)
+                        break;
+
+                    case 1:
+                    case 2:
+                    case 3:
+                        printf("8042 scancode set %i\n", data);
+                        i8042Queue.push(0xFA); // ACK
+                        break;
+                }
+                break;
+            
+            case 0xF3: // typematic
+            {
+                auto rate = data & 0x1F;
+                auto delay = (data >> 5) & 3;
+
+                printf("8042 typematic rate %i delay %i\n", rate, delay);
+
+                i8042Queue.push(0xFA); // ACK
+                break;
+            }
+        }
+
+        i8042DeviceCommand[0] = 0;
+    }
+    else
+    {
+        // assume second is mouse
+        switch(i8042DeviceCommand[1])
+        {
+            case 0xE8: // set resolution
+                printf("8042 mouse resolution %i\n", data);
+                i8042Queue.push(0x1FA); // ACK
+                break;
+
+            case 0xF3: // set sample rate
+                printf("8042 mouse sample rate %i\n", data);
+                i8042Queue.push(0x1FA); // ACK
+                break;
+        }
+
+        i8042DeviceCommand[1] = 0;
     }
 }
 
