@@ -5261,7 +5261,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 auto &curTSSDesc = getCachedSegmentDescriptor(Reg16::TR);
                 uint16_t prevTSS;
-                readMem16(curTSSDesc.base, prevTSS);
+                readMem16(curTSSDesc.base, prevTSS, true);
 
                 // NULL or local descriptor
                 // TODO: also check GDT limit, descriptor type and present
@@ -7041,8 +7041,8 @@ bool CPU::getTSSStackPointer(int dpl, uint32_t &newSP, uint16_t &newSS)
             return false;
         }
 
-        return readMem32(tsDesc.base + tssAddr + 0, newSP)  // ESP[DPL]
-            && readMem16(tsDesc.base + tssAddr + 4, newSS); // SS[DPL]
+        return readMem32(tsDesc.base + tssAddr + 0, newSP, true)  // ESP[DPL]
+            && readMem16(tsDesc.base + tssAddr + 4, newSS, true); // SS[DPL]
     }
     else // 16 bit
     {
@@ -7056,8 +7056,8 @@ bool CPU::getTSSStackPointer(int dpl, uint32_t &newSP, uint16_t &newSS)
             return false;
         }
 
-        return readMem16(tsDesc.base + tssAddr + 0, newSP)  // SP[DPL]
-            && readMem16(tsDesc.base + tssAddr + 2, newSS); // SS[DPL]
+        return readMem16(tsDesc.base + tssAddr + 0, newSP, true)  // SP[DPL]
+            && readMem16(tsDesc.base + tssAddr + 2, newSS, true); // SS[DPL]
     }
 
     return true;
@@ -7084,7 +7084,7 @@ bool CPU::checkIOPermission(uint16_t addr)
     if(descType == SD_SysTypeTSS32 || descType == SD_SysTypeBusyTSS32) // 32 bit
     {
         uint16_t ioMapBase;
-        readMem16(tsDesc.base + 0x66, ioMapBase);
+        readMem16(tsDesc.base + 0x66, ioMapBase, true);
 
         uint32_t byteAddr = ioMapBase + addr / 8;
 
@@ -7096,7 +7096,7 @@ bool CPU::checkIOPermission(uint16_t addr)
         }
 
         uint8_t mapByte;
-        readMem8(tsDesc.base + byteAddr, mapByte);
+        readMem8(tsDesc.base + byteAddr, mapByte, true);
 
         // allowed if bit cleared
         // TODO: need to check multiple bits for 16/32bit port access
@@ -7894,22 +7894,22 @@ bool CPU::taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource sourc
 
     if(curTSSType == SD_SysTypeTSS16 || curTSSType == SD_SysTypeBusyTSS16)
     {
-        writeMem16(curTSSDesc.base + 0x0e, retAddr); // IP
-        writeMem16(curTSSDesc.base + 0x10, flags);
+        writeMem16(curTSSDesc.base + 0x0e, retAddr, true); // IP
+        writeMem16(curTSSDesc.base + 0x10, flags, true);
 
-        writeMem16(curTSSDesc.base + 0x12, reg(Reg16::AX));
-        writeMem16(curTSSDesc.base + 0x14, reg(Reg16::CX));
-        writeMem16(curTSSDesc.base + 0x16, reg(Reg16::DX));
-        writeMem16(curTSSDesc.base + 0x18, reg(Reg16::BX));
-        writeMem16(curTSSDesc.base + 0x1a, reg(Reg16::SP));
-        writeMem16(curTSSDesc.base + 0x1c, reg(Reg16::BP));
-        writeMem16(curTSSDesc.base + 0x1e, reg(Reg16::SI));
-        writeMem16(curTSSDesc.base + 0x20, reg(Reg16::DI));
+        writeMem16(curTSSDesc.base + 0x12, reg(Reg16::AX), true);
+        writeMem16(curTSSDesc.base + 0x14, reg(Reg16::CX), true);
+        writeMem16(curTSSDesc.base + 0x16, reg(Reg16::DX), true);
+        writeMem16(curTSSDesc.base + 0x18, reg(Reg16::BX), true);
+        writeMem16(curTSSDesc.base + 0x1a, reg(Reg16::SP), true);
+        writeMem16(curTSSDesc.base + 0x1c, reg(Reg16::BP), true);
+        writeMem16(curTSSDesc.base + 0x1e, reg(Reg16::SI), true);
+        writeMem16(curTSSDesc.base + 0x20, reg(Reg16::DI), true);
 
-        writeMem16(curTSSDesc.base + 0x22, reg(Reg16::ES));
-        writeMem16(curTSSDesc.base + 0x24, reg(Reg16::CS));
-        writeMem16(curTSSDesc.base + 0x26, reg(Reg16::SS));
-        writeMem16(curTSSDesc.base + 0x28, reg(Reg16::DS));
+        writeMem16(curTSSDesc.base + 0x22, reg(Reg16::ES), true);
+        writeMem16(curTSSDesc.base + 0x24, reg(Reg16::CS), true);
+        writeMem16(curTSSDesc.base + 0x26, reg(Reg16::SS), true);
+        writeMem16(curTSSDesc.base + 0x28, reg(Reg16::DS), true);
     }
 
     // save old TR for later
@@ -7944,19 +7944,19 @@ bool CPU::taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource sourc
     if(sysType == SD_SysTypeTSS16)
     {
         uint16_t tmp;
-        readMem16(tssDesc.base + 0x10, tmp);
+        readMem16(tssDesc.base + 0x10, tmp, true);
         flags = (flags & 0xFFFF0000) | tmp;
 
-        readMem16(tssDesc.base + 0x12, reg(Reg16::AX));
-        readMem16(tssDesc.base + 0x14, reg(Reg16::CX));
-        readMem16(tssDesc.base + 0x16, reg(Reg16::DX));
-        readMem16(tssDesc.base + 0x18, reg(Reg16::BX));
-        readMem16(tssDesc.base + 0x1a, reg(Reg16::SP));
-        readMem16(tssDesc.base + 0x1c, reg(Reg16::BP));
-        readMem16(tssDesc.base + 0x1e, reg(Reg16::SI));
-        readMem16(tssDesc.base + 0x20, reg(Reg16::DI));
+        readMem16(tssDesc.base + 0x12, reg(Reg16::AX), true);
+        readMem16(tssDesc.base + 0x14, reg(Reg16::CX), true);
+        readMem16(tssDesc.base + 0x16, reg(Reg16::DX), true);
+        readMem16(tssDesc.base + 0x18, reg(Reg16::BX), true);
+        readMem16(tssDesc.base + 0x1a, reg(Reg16::SP), true);
+        readMem16(tssDesc.base + 0x1c, reg(Reg16::BP), true);
+        readMem16(tssDesc.base + 0x1e, reg(Reg16::SI), true);
+        readMem16(tssDesc.base + 0x20, reg(Reg16::DI), true);
 
-        readMem16(tssDesc.base + 0x0e, tmp);
+        readMem16(tssDesc.base + 0x0e, tmp, true);
         reg(Reg32::EIP) = tmp;
 
 
@@ -7964,13 +7964,13 @@ bool CPU::taskSwitch(uint16_t selector, uint32_t retAddr, TaskSwitchSource sourc
         if(!readMem16(tssDesc.base + 0x2a, tmp) || !setLDT(tmp))
             return false;
 
-        if(!readMem16(tssDesc.base + 0x22, tmp) || !setSegmentReg(Reg16::ES, tmp))
+        if(!readMem16(tssDesc.base + 0x22, tmp, true) || !setSegmentReg(Reg16::ES, tmp))
             return false;
-        if(!readMem16(tssDesc.base + 0x24, tmp) || !setSegmentReg(Reg16::CS, tmp))
+        if(!readMem16(tssDesc.base + 0x24, tmp, true) || !setSegmentReg(Reg16::CS, tmp))
             return false;
-        if(!readMem16(tssDesc.base + 0x26, tmp) || !setSegmentReg(Reg16::SS, tmp))
+        if(!readMem16(tssDesc.base + 0x26, tmp, true) || !setSegmentReg(Reg16::SS, tmp))
             return false;
-        if(!readMem16(tssDesc.base + 0x28, tmp) || !setSegmentReg(Reg16::DS, tmp))
+        if(!readMem16(tssDesc.base + 0x28, tmp, true) || !setSegmentReg(Reg16::DS, tmp))
             return false;
     }
 
