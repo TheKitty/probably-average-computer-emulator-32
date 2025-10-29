@@ -250,4 +250,6 @@ private:
 
     // RAM
     System &sys;
+
+    CPUTrace trace;
 };
