@@ -6598,7 +6598,15 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrit
         return false;
     }
 
-    // FIXME: check user/supervisor
+    // check user bit if CPL 3 and this isn't accessing the GDT/LDT/IDT/TSS
+    if(cpl == 3 && !privileged)
+    {
+        if(!(dirEntry & (1 << 2)) || !(pageEntry & (1 << 2)))
+        {
+            pageFault(true, forWrite, virtAddr);
+            return false;
+        }
+    }
 
     // set dir accessed
     if(!(dirEntry & 1 << 5))
