@@ -62,6 +62,15 @@ enum SegmentDescriptorFlags
     SD_SysTypeTrapGate32 = 0xF << 16,
 };
 
+enum PageFlags
+{
+    Page_Present  = 1 << 0,
+    Page_Writable = 1 << 1,
+    Page_User     = 1 << 2,
+    Page_Accessed = 1 << 5,
+    Page_Dirty    = 1 << 6,
+};
+
 // opcode helpers
 
 static constexpr bool parity(uint8_t v)
@@ -6558,7 +6567,7 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrit
     uint32_t dirEntry = sys.readMem32(dirEntryAddr);
 
     // not present
-    if(!(dirEntry & 1))
+    if(!(dirEntry & Page_Present))
     {
         pageFault(false, forWrite, virtAddr);
         return false;
@@ -6569,21 +6578,21 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrit
 
     uint32_t pageEntry = sys.readMem32(pageEntryAddr);
 
-    if(!(pageEntry & 1))
+    if(!(pageEntry & Page_Present))
     {
         pageFault(false, forWrite, virtAddr);
         return false;
     }
 
     // dir writable
-    if(forWrite && cpl == 3 && !(dirEntry & (1 << 1)))
+    if(forWrite && cpl == 3 && !(dirEntry & Page_Writable))
     {
         pageFault(true, forWrite, virtAddr);
         return false;
     }
 
     // page writable
-    if(forWrite && cpl == 3 && !(pageEntry & (1 << 1)))
+    if(forWrite && cpl == 3 && !(pageEntry & Page_Writable))
     {
         pageFault(true, forWrite, virtAddr);
         return false;
@@ -6592,7 +6601,7 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrit
     // check user bit if CPL 3 and this isn't accessing the GDT/LDT/IDT/TSS
     if(cpl == 3 && !privileged)
     {
-        if(!(dirEntry & (1 << 2)) || !(pageEntry & (1 << 2)))
+        if(!(dirEntry & Page_User) || !(pageEntry & Page_User))
         {
             pageFault(true, forWrite, virtAddr);
             return false;
@@ -6600,12 +6609,12 @@ bool CPU::getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrit
     }
 
     // set dir accessed
-    if(!(dirEntry & 1 << 5))
-        sys.writeMem(dirEntryAddr, dirEntry | (1 << 5));
+    if(!(dirEntry & Page_Accessed))
+        sys.writeMem(dirEntryAddr, dirEntry | Page_Accessed);
 
     // set page accessed/dirty
-    if(!(pageEntry & 1 << 5) || (forWrite && !(pageEntry & 1 << 6)))
-        sys.writeMem(pageEntryAddr, pageEntry | (1 << 5) | (forWrite ? (1 << 6) : 0));
+    if(!(pageEntry & Page_Accessed) || (forWrite && !(pageEntry & Page_Dirty)))
+        sys.writeMem(pageEntryAddr, pageEntry | Page_Accessed | (forWrite ? Page_Dirty : 0));
 
     physAddr = (pageEntry & 0xFFFFF000) | (virtAddr & 0xFFF);
     return true;
