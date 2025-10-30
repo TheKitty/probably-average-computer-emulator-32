@@ -11,15 +11,22 @@ VGACard::VGACard(System &sys) : sys(sys)
 void VGACard::drawScanline(int line, uint8_t *output)
 {
 #ifdef VGA_RGB565
-    auto outputPixel = [&output](int r, int g, int b)
+    auto outputPixel = [&output](uint8_t *col)
     {
+        uint8_t r = col[0];
+        uint8_t g = col[1];
+        uint8_t b = col[2];
+
         *reinterpret_cast<uint16_t *>(output) = r >> 1 | g << 5 | (b >> 1) << 11;
         output += 2;
     };
 #else
-    //RGB888
-    auto outputPixel = [&output](int r, int g, int b)
+    // RGB888
+    auto outputPixel = [&output](uint8_t *col)
     {
+        uint8_t r = col[0];
+        uint8_t g = col[1];
+        uint8_t b = col[2];
         *output++ = r << 2 | r >> 4;
         *output++ = g << 2 | g >> 4;
         *output++ = b << 2 | b >> 4;
@@ -27,10 +34,15 @@ void VGACard::drawScanline(int line, uint8_t *output)
     };
 #endif
 
-    auto paletteLookup16 = [this] (int index)
+    auto paletteLookup16 = [this](int index)
     {
         uint8_t pal64 = attribPalette[index];
         return dacPalette + pal64 * 3;
+    };
+
+    auto paletteLookup256 = [this](int index)
+    {
+        return dacPalette + index * 3;
     };
 
     lastOutputLine = line;
@@ -80,7 +92,7 @@ void VGACard::drawScanline(int line, uint8_t *output)
             if(!fontLine) // skip blank chars (TODO: also do blink here)
             {
                 for(int x = 0; x < charWidth; x++)
-                    outputPixel(bgCol[0], bgCol[1], bgCol[2]);
+                    outputPixel(bgCol);
                 
                 continue;
             }
@@ -89,9 +101,7 @@ void VGACard::drawScanline(int line, uint8_t *output)
             {
                 bool fontVal = ((fontLine << x) & 0x8000);
 
-                auto pal256 = fontVal ? fgCol : bgCol;
-
-                outputPixel(pal256[0], pal256[1], pal256[2]);
+                outputPixel(fontVal ? fgCol : bgCol);
             }
         }
     }
@@ -113,22 +123,15 @@ void VGACard::drawScanline(int line, uint8_t *output)
             uint8_t byte3 = (attribPlaneEnable & (1 << 3)) ? ptr0[0x30000] : 0;
             ptr0 += byteAccess ? 1 : 4;
 
-            auto pal256 = dacPalette + byte0 * 3;
-            outputPixel(pal256[0], pal256[1], pal256[2]);
-
-            pal256 = dacPalette + byte1 * 3;
-            outputPixel(pal256[0], pal256[1], pal256[2]);
-
-            pal256 = dacPalette + byte2 * 3;
-            outputPixel(pal256[0], pal256[1], pal256[2]);
-
-            pal256 = dacPalette + byte3 * 3;
-            outputPixel(pal256[0], pal256[1], pal256[2]);
+            outputPixel(paletteLookup256(byte0));
+            outputPixel(paletteLookup256(byte1));
+            outputPixel(paletteLookup256(byte2));
+            outputPixel(paletteLookup256(byte3));
         }
     }
     else if(gfxMode & (1 << 4)) // interleaved
     {
-        outputPixel(0, 63, 0);
+        // FIXME: this is used by mode 0D
     }
     else // 16 col?
     {
@@ -159,9 +162,7 @@ void VGACard::drawScanline(int line, uint8_t *output)
                 byte2 <<= 1;
                 byte3 <<= 1;
 
-                auto pal256 = paletteLookup16(col);
-
-                outputPixel(pal256[0], pal256[1], pal256[2]);
+                outputPixel(paletteLookup16(col));
             }
         }
     }
