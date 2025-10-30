@@ -1,5 +1,12 @@
 #include <cstdio>
 
+#ifdef PICO_BUILD
+#include "pico.h"
+#define RAM_FUNC(x) __not_in_flash_func(x)
+#else
+#define RAM_FUNC(x) x
+#endif
+
 #include "VGACard.h"
 
 VGACard::VGACard(System &sys) : sys(sys)
@@ -8,7 +15,7 @@ VGACard::VGACard(System &sys) : sys(sys)
     sys.addIODevice(0x3E0, 0x3C0, 0, this); // 3Cx/3Dx
 }
 
-void VGACard::drawScanline(int line, uint8_t *output)
+void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 {
 #ifdef VGA_RGB565
     auto outputPixel = [&output](uint16_t col)
@@ -71,6 +78,10 @@ void VGACard::drawScanline(int line, uint8_t *output)
         int hDispChars = crtcRegs[1] + 1;
         int offset = crtcRegs[0x13];
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
+
+#ifdef PICO_BUILD
+        charWidth = 8; // HACK: we don't support 720 wide modes yet
+#endif
 
         auto charPtr = plane0 + startAddr * 2 + offset * 4 * (line / charHeight);
 

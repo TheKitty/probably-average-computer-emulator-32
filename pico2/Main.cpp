@@ -63,6 +63,13 @@ void update_mouse_state(int8_t x, int8_t y, bool left, bool right)
     chipset.syncMouse();
 }
 
+// the first argument serves no purpose other than making this function not shuffle regs around
+void __not_in_flash_func(display_draw_line)(void *, int line, uint16_t *buf)
+{
+    // may need to be more careful here as this is coming from an interrupt...
+    vga.drawScanline(line, reinterpret_cast<uint8_t *>(buf));
+}
+
 static void runEmulator(absolute_time_t &time)
 {
     auto now = get_absolute_time();
@@ -148,6 +155,10 @@ int main()
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
 
     sys.reset();
+
+    // FIXME: mode changes
+    set_display_size(640, 480);
+    update_display();
 
     multicore_launch_core1(core1Main);
 

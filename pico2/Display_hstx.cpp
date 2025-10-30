@@ -9,7 +9,6 @@
 #include "hardware/structs/hstx_fifo.h"
 
 #include "Display.h"
-#include "Palette.h"
 
 #include "config.h"
 
@@ -94,6 +93,7 @@ static const uint32_t vactive_line[] = {
 
 #define HSTX_DMA_CH_BASE 0
 #define HSTX_NUM_DMA_CHANNELS 3
+#define HSTX_NUM_LINE_BUFFERS 4
 
 static uint8_t cur_dma_ch = HSTX_DMA_CH_BASE;
 
@@ -108,11 +108,10 @@ static uint32_t new_scanline_step = 0;
 
 static bool started = false;
 static volatile bool need_mode_change = false;
-static uint8_t framebuffer[640 * 200];
 
 // temp buffer for expanding lines (pixel double)
 // two scanlines + include the cmdlist(s) so we can avoid an irq
-static uint32_t scanline_buffer[(MODE_H_ACTIVE_PIXELS * sizeof(uint16_t) + sizeof(vactive_line)) / sizeof(uint32_t) * 2];
+static uint32_t scanline_buffer[(MODE_H_ACTIVE_PIXELS * sizeof(uint16_t) + sizeof(vactive_line)) / sizeof(uint32_t) * HSTX_NUM_LINE_BUFFERS];
 
 static void __scratch_x("") dma_irq_handler() {
     // cur_dma_ch indicates the channel that just finished, which is the one
@@ -136,31 +135,16 @@ static void __scratch_x("") dma_irq_handler() {
         bool first = display_line != last_in_scanline;
         last_in_scanline = display_line;
 
-        const auto line_buf_size_words = sizeof(scanline_buffer) / sizeof(uint32_t) / 2;
-        auto temp_ptr = scanline_buffer + (display_line & 1) * line_buf_size_words;
+        const auto line_buf_size_words = sizeof(scanline_buffer) / sizeof(uint32_t) / HSTX_NUM_LINE_BUFFERS;
+        auto temp_ptr = scanline_buffer + (display_line & (HSTX_NUM_LINE_BUFFERS - 1)) * line_buf_size_words;
         ch->read_addr = (uintptr_t)temp_ptr;
 
         ch->transfer_count = std::size(vactive_line) + (MODE_H_ACTIVE_PIXELS * 2) / sizeof(uint32_t);
 
         // expand line if needed
         if(first) {
-            auto w = MODE_H_ACTIVE_PIXELS >> h_shift;
-            auto fb_line_ptr = framebuffer + display_line * w;
-
             temp_ptr += std::size(vactive_line);
-            // palette lookup
-            if(h_shift == 0) {
-                for(int i = 0; i < w / 2; i++) {
-                    auto px = *fb_line_ptr++;
-                    *temp_ptr++ = cga_palette[px & 0xF] | cga_palette[px >> 4] << 16;
-                }
-            } else {
-                for(int i = 0; i < w / 2; i++) {
-                    auto px = *fb_line_ptr++;
-                    *temp_ptr++ = cga_palette[px & 0xF] | cga_palette[px & 0xF] << 16;
-                    *temp_ptr++ = cga_palette[px >> 4] | cga_palette[px >> 4] << 16;
-                }
-            }
+            display_draw_line(nullptr, display_line, reinterpret_cast<uint16_t *>(temp_ptr));
         }
     }
 
@@ -289,13 +273,13 @@ void init_display() {
     irq_set_enabled(DMA_IRQ_0, true);
 
     // fill line headers
-    const auto line_buf_size = sizeof(scanline_buffer) / 2;
-    auto line_buf0 = scanline_buffer;
-    auto line_buf1 = scanline_buffer + line_buf_size / sizeof(uint32_t);
+    const auto line_buf_size = sizeof(scanline_buffer) / HSTX_NUM_LINE_BUFFERS;
 
     for(size_t i = 0; i < std::size(vactive_line); i++)
-        *line_buf0++ = *line_buf1++ = vactive_line[i];
-
+    {
+        for(int j = 0; j < HSTX_NUM_LINE_BUFFERS; j++)
+            scanline_buffer[j * (line_buf_size / sizeof(uint32_t)) + i] = vactive_line[i];
+    }
     // set irq to highest priority
     irq_set_priority(DMA_IRQ_0, PICO_HIGHEST_IRQ_PRIORITY);
 }
@@ -362,16 +346,4 @@ void update_display() {
 
         dma_channel_start(HSTX_DMA_CH_BASE);
     }
-}
-
-bool display_in_first_half() {
-    return started && v_scanline < MODE_V_TOTAL_LINES / 2;
-}
-
-bool display_in_second_half() {
-    return started && v_scanline >= MODE_V_TOTAL_LINES / 2;
-}
-
-uint8_t *display_get_framebuffer() {
-    return framebuffer;
 }

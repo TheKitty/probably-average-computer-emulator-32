@@ -23,7 +23,7 @@ if(NOT EXTRA_BOARD)
 endif()
 
 string(TOUPPER ${EXTRA_BOARD} EXTRA_BOARD_UPPER)
-target_compile_definitions(PACEPico2 PRIVATE EXTRA_BOARD_${EXTRA_BOARD_UPPER}=1)
+target_compile_definitions(PACEPico2 PRIVATE EXTRA_BOARD_${EXTRA_BOARD_UPPER}=1 VGA_RGB565)
 
 # driver selection based on boards
 set(AUDIO_DRIVER none)
