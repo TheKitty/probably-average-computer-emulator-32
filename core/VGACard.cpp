@@ -40,7 +40,6 @@ void VGACard::drawScanline(int line, uint8_t *output)
         line /= 2;
 
     auto plane0 = ram;
-    auto plane1 = ram + 0x10000;
     auto plane2 = ram + 0x20000;
 
     if(!(gfxMisc & (1 << 0)))
@@ -53,14 +52,14 @@ void VGACard::drawScanline(int line, uint8_t *output)
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
 
         auto charPtr = plane0 + startAddr * 2 + offset * 4 * (line / charHeight);
-        auto attrPtr = plane1 + startAddr * 2 + offset * 4 * (line / charHeight);
+
+        auto fontPtr = plane2 + line % charHeight;
 
         for(int i = 0; i < hDispChars; i++)
         {
             auto ch = *charPtr;
-            auto attr = *attrPtr;
+            auto attr = charPtr[0x10000]; // same addr, next plane
             charPtr += 2;
-            attrPtr += 2;
 
             // TODO: blink
             int bg = attr >> 4;
@@ -70,10 +69,10 @@ void VGACard::drawScanline(int line, uint8_t *output)
             auto fgCol = paletteLookup16(fg);
 
             // TODO: char sets
-            uint16_t fontLine = plane2[ch * 32 + line % charHeight] << 8;
+            uint16_t fontLine = fontPtr[ch * 32] << 8;
 
             // copy last bit for line graphics
-            if((attribMode & (1 << 2)/*LGE*/) && ch >= 0xC0 && ch < 0xE0)
+            if(ch >= 0xC0 && ch < 0xE0 && (attribMode & (1 << 2)/*LGE*/))
                 fontLine |= (fontLine >> 1) & 0x80;
 
             // TODO: cursor
