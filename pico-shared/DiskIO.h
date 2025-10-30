@@ -1,13 +1,16 @@
 #pragma once
 
-#include "FixedDiskAdapter.h"
+#include "ATAController.h"
 
 #include "fatfs/ff.h"
 
-class FileFixedIO final : public FixedDiskIO
+class FileATAIO final : public ATADiskIO
 {
 public:
-    bool isPresent(int unit) override;
+    uint32_t getNumSectors(int device) override;
+
+    bool isATAPI(int drive) override;
+
     bool read(int unit, uint8_t *buf, uint32_t lba) override;
     bool write(int unit, const uint8_t *buf, uint32_t lba) override;
 
@@ -17,4 +20,7 @@ public:
 
 private:
     FIL file[maxDrives];
+
+    uint32_t numSectors[maxDrives]{};
+    bool isCD[maxDrives]{};
 };

@@ -4,7 +4,7 @@ target_sources(PACEPicoShared INTERFACE
     fatfs/ff.c
     fatfs/ffunicode.c
 
-    #DiskIO.cpp
+    DiskIO.cpp
     Filesystem.cpp
     Storage.cpp
     USBHID.cpp

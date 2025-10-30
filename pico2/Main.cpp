@@ -18,7 +18,7 @@
 
 #include "Audio.h"
 #include "BIOS.h"
-//#include "DiskIO.h"
+#include "DiskIO.h"
 #include "Display.h"
 
 
@@ -33,13 +33,12 @@ static FATFS fs;
 
 static System sys;
 
+static ATAController ataPrimary(sys);
 static FloppyController fdc(sys);
-
 static QEMUConfig qemuCfg(sys);
-
 static VGACard vga(sys);
 
-//static FileFixedIO fixedIO;
+static FileATAIO ataPrimaryIO;
 
 static uint32_t emu_time = 0, real_time = 0, sync_time = 0;
 
@@ -153,6 +152,10 @@ int main()
     memcpy(psram + biosBase, bios, biosBase);
 
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
+
+    // disk setup
+    ataPrimary.setIOInterface(&ataPrimaryIO);
+    ataPrimaryIO.openDisk(0, "hd0.img");
 
     sys.reset();
 

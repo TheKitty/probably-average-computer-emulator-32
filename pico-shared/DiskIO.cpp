@@ -2,12 +2,23 @@
 
 #include "DiskIO.h"
 
-bool FileFixedIO::isPresent(int unit)
+uint32_t FileATAIO::getNumSectors(int unit)
 {
-    return unit < maxDrives;// && file[unit];
+    if(unit >= maxDrives)
+        return false;
+
+    return numSectors[unit];
 }
 
-bool FileFixedIO::read(int unit, uint8_t *buf, uint32_t lba)
+bool FileATAIO::isATAPI(int unit)
+{
+    if(unit >= maxDrives)
+        return false;
+
+    return isCD[unit];
+}
+
+bool FileATAIO::read(int unit, uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
@@ -20,7 +31,7 @@ bool FileFixedIO::read(int unit, uint8_t *buf, uint32_t lba)
     return res == FR_OK && read == 512;
 }
 
-bool FileFixedIO::write(int unit, const uint8_t *buf, uint32_t lba)
+bool FileATAIO::write(int unit, const uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
@@ -33,13 +44,24 @@ bool FileFixedIO::write(int unit, const uint8_t *buf, uint32_t lba)
     return res == FR_OK && written == 512;
 }
 
-void FileFixedIO::openDisk(int unit, const char *path)
+void FileATAIO::openDisk(int unit, const char *path)
 {
     if(unit >= maxDrives)
         return;
 
     auto res = f_open(&file[unit], path, FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
 
-    if(res == FR_OK)
-        printf("Loaded fixed-disk %i: %s\n", unit, path);
+    // TODO: check ext (also handle sector size in read)
+    isCD[unit] = false;
+
+    if(res != FR_OK)
+        return;
+
+    // get size
+    int sectorSize = isCD[unit] ? 2048 : 512;
+
+    numSectors[unit] = f_size(&file[unit]) / sectorSize;
+
+    printf("Loaded ATA disk %i: %s (size: %lu)\n", unit, path, numSectors[unit] * sectorSize);
+
 }
