@@ -206,7 +206,19 @@ public:
         // TODO: assumes 250MHz clock (250 / 209 = ~1.196Mhz)
         // technically we should adjust the upper bits periodically to have proper wraping
         // but I don't think we need to worry about that...
-        cycleCount = (riscv_timer_get_mtime() / 209) * pitClkDiv;
+        auto mtime = riscv_timer_get_mtime();
+        auto diff = mtime - lastMtime;
+        assert(!(diff >> 32)); // if the CPU froze for several seconds we have problems
+
+        auto cycles = uint32_t(diff) / 209;
+
+        if(cycles)
+        {
+            cycleCount += cycles * pitClkDiv;
+            lastMtime += cycles * 209;
+        }
+        // avoiding this 64bit divide...
+        //cycleCount = (riscv_timer_get_mtime() / 209) * pitClkDiv;
 #endif
         return cycleCount;
     }
@@ -269,6 +281,10 @@ private:
     CPU cpu;
 
     uint32_t cycleCount = 0;
+
+#ifdef PICO_BUILD
+    uint64_t lastMtime = 0;
+#endif
 
     static const int maxAddress = 1 << 24;
     static const int blockSize = 16 * 1024;
