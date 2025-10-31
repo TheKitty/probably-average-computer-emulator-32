@@ -1,8 +1,28 @@
 #pragma once
 
 #include "ATAController.h"
+#include "FloppyController.h"
 
 #include "fatfs/ff.h"
+
+class FileFloppyIO final : public FloppyDiskIO
+{
+public:
+    bool isPresent(int unit) override;
+
+    bool read(int unit, uint8_t *buf, uint8_t cylinder, uint8_t head, uint8_t sector) override;
+    bool write(int unit, const uint8_t *buf, uint8_t cylinder, uint8_t head, uint8_t sector) override;
+
+    void openDisk(int unit, const char *path);
+
+    static const int maxDrives = 1;
+
+private:
+    FIL file[maxDrives];
+
+    bool doubleSided[maxDrives];
+    int sectorsPerTrack[maxDrives];
+};
 
 class FileATAIO final : public ATADiskIO
 {

@@ -40,6 +40,7 @@ static QEMUConfig qemuCfg(sys);
 static VGACard vga(sys);
 
 static FileATAIO ataPrimaryIO;
+static FileFloppyIO floppyIO;
 
 static uint32_t emu_time = 0, real_time = 0, sync_time = 0;
 
@@ -161,6 +162,11 @@ static bool readConfigFile()
             // using value as a c string is fine as it's the end of the original string
             ataPrimaryIO.openDisk(index, value.data());
         }
+        else if(key.compare(0, 6, "floppy") == 0 && key.length() == 7 && key[6] >= '0' && key[6] <= '9')
+        {
+            int index = key[6] - '0';
+            floppyIO.openDisk(index, value.data());
+        }
         else
             printf("unhandled config line %s\n", buf);
     }
@@ -212,6 +218,8 @@ int main()
 
     // disk setup
     ataPrimary.setIOInterface(&ataPrimaryIO);
+    fdc.setIOInterface(&floppyIO);
+
     if(!readConfigFile())
     {
         // load a default image
