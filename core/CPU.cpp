@@ -713,18 +713,19 @@ void RAM_FUNC(CPU::executeInstruction)()
     bool addressSize32 = isOperandSize32(addressSizeOverride);
     bool stackAddrSize32 = isStackAddressSize32();
 
-    // TODO: make this return the address?
-    auto getDispLen = [this, &addressSize32](uint8_t modRM, uint32_t nextAddr)
+    // returns address after end of modr/m and disp
+    // nextAddr is the address of the byte after the rm byte
+    auto getDispEnd = [this, &addressSize32](uint8_t modRM, uint32_t nextAddr)
     {
         auto mod = modRM >> 6;
         auto rm = modRM & 7;
 
         if(mod == 3)
-            return 0;
+            return nextAddr;
 
         if(addressSize32)
         {
-            int ret = 0;
+            uint32_t ret = nextAddr;
 
             if(rm == 4) // SIB
                 ret++;
@@ -753,11 +754,12 @@ void RAM_FUNC(CPU::executeInstruction)()
             if(mod == 2)
                 return ret + 4;
         }
+        // else 16 bit
 
         if(mod == 0)
-            return rm == 6 ? 2 : 0;
+            return nextAddr + (rm == 6 ? 2 : 0);
 
-        return mod; // mod 1 == 8bit, mod 2 == 16bit  
+        return nextAddr + mod; // mod 1 == 8bit, mod 2 == 16bit  
     };
 
     // with 16-bit operands the high bits of IP should be zeroed
@@ -1670,7 +1672,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     auto r = (modRM >> 3) & 0x7;
                 
                     uint8_t count;
-                    if(!readMem8(addr + 3 + getDispLen(modRM, addr + 3), count))
+                    if(!readMem8(getDispEnd(modRM, addr + 3), count))
                         return;
 
                     count &= 0x1F;
@@ -1806,7 +1808,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     auto r = (modRM >> 3) & 0x7;
 
                     uint8_t count;
-                    if(!readMem8(addr + 3 + getDispLen(modRM, addr + 3), count))
+                    if(!readMem8(getDispEnd(modRM, addr + 3), count))
                         return;
 
                     count &= 0x1F;
@@ -2022,7 +2024,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                         return;
 
                     uint8_t bit;
-                    if(!readMem8(addr + 3 + getDispLen(modRM, addr + 3), bit))
+                    if(!readMem8(getDispEnd(modRM, addr + 3), bit))
                         return;
 
                     reg(Reg32::EIP) += 3;
@@ -2926,7 +2928,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             auto r = (modRM >> 3) & 0x7;
    
-            auto immAddr = addr + 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
 
             if(operandSize32)
             {
@@ -3001,7 +3003,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto r = (modRM >> 3) & 0x7;
 
             int32_t imm;
-            if(!readMem8(addr + 2 + getDispLen(modRM, addr + 2), imm))
+            if(!readMem8(getDispEnd(modRM, addr + 2), imm))
                 return;
 
             if(operandSize32)
@@ -3285,10 +3287,10 @@ void RAM_FUNC(CPU::executeInstruction)()
             if(!readRM8(modRM, dest, addr))
                 break;
 
-            int immOff = 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
 
             uint8_t imm;
-            if(!readMem8(addr + immOff, imm))
+            if(!readMem8(immAddr, imm))
                 return;
 
             reg(Reg32::EIP) += 2;
@@ -3331,12 +3333,12 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             auto exOp = (modRM >> 3) & 0x7;
 
-            int immOff = 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
 
             if(operandSize32)
             {
                 uint32_t imm;
-                if(!readMem32(addr + immOff, imm))
+                if(!readMem32(immAddr, imm))
                     return;
 
                 uint32_t dest;
@@ -3424,7 +3426,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             auto exOp = (modRM >> 3) & 0x7;
 
-            int immOff = 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
 
             reg(Reg32::EIP) += 2;
 
@@ -3436,7 +3438,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
                 uint32_t imm;
 
-                if(!readMem8(addr + immOff, imm))
+                if(!readMem8(immAddr, imm))
                     return;
 
                 // sign extend
@@ -4835,7 +4837,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto exOp = (modRM >> 3) & 0x7;
     
             uint8_t count;
-            if(!readMem8(addr + 2 + getDispLen(modRM, addr + 2), count))
+            if(!readMem8(getDispEnd(modRM, addr + 2), count))
                 return;
     
             reg(Reg32::EIP) += 2;
@@ -4856,7 +4858,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             auto exOp = (modRM >> 3) & 0x7;
     
             uint8_t count;
-            if(!readMem8(addr + 2 + getDispLen(modRM, addr + 2), count))
+            if(!readMem8(getDispEnd(modRM, addr + 2), count))
                 return;
 
             reg(Reg32::EIP) += 2;
@@ -4929,9 +4931,10 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             assert(((modRM >> 3) & 0x7) == 0);
 
-            int immOff = 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
+
             uint8_t imm;
-            if(!readMem8(addr + immOff, imm))
+            if(!readMem8(immAddr, imm))
                 return;
 
             reg(Reg32::EIP) += 2;
@@ -4948,12 +4951,12 @@ void RAM_FUNC(CPU::executeInstruction)()
 
             assert(((modRM >> 3) & 0x7) == 0);
 
-            int immOff = 2 + getDispLen(modRM, addr + 2);
+            auto immAddr = getDispEnd(modRM, addr + 2);
 
             if(operandSize32)
             {
                 uint32_t imm;
-                if(!readMem32(addr + immOff, imm))
+                if(!readMem32(immAddr, imm))
                     return;
 
                 reg(Reg32::EIP) += 5;
@@ -4962,7 +4965,7 @@ void RAM_FUNC(CPU::executeInstruction)()
             else
             {
                 uint16_t imm;
-                if(!readMem16(addr + immOff, imm))
+                if(!readMem16(immAddr, imm))
                     return;
 
                 reg(Reg32::EIP) += 3;
@@ -5858,7 +5861,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                 case 0: // TEST imm
                 {
                     uint8_t imm;
-                    if(!readMem8(addr + 2 + getDispLen(modRM, addr + 2), imm))
+                    if(!readMem8(getDispEnd(modRM, addr + 2), imm))
                         return;
 
                     doAnd(v, imm, flags);
@@ -5975,11 +5978,11 @@ void RAM_FUNC(CPU::executeInstruction)()
             {
                 case 0: // TEST imm
                 {
-                    int immOff = 2 + getDispLen(modRM, addr + 2);
+                    auto immAddr = getDispEnd(modRM, addr + 2);
                     if(operandSize32)
                     {
                         uint32_t imm;
-                        if(!readMem32(addr + immOff, imm))
+                        if(!readMem32(immAddr, imm))
                             return;
 
                         doAnd(v, imm, flags);
@@ -5989,7 +5992,7 @@ void RAM_FUNC(CPU::executeInstruction)()
                     else
                     {
                         uint16_t imm;
-                        if(!readMem16(addr + immOff, imm))
+                        if(!readMem16(immAddr, imm))
                             return;
 
                         doAnd(uint16_t(v), imm, flags);
