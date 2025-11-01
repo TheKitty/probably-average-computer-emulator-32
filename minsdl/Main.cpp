@@ -15,7 +15,6 @@
 #include "DiskIO.h"
 
 static bool quit = false;
-static bool turbo = false;
 
 static SDL_AudioStream *audioStream;
 
@@ -403,6 +402,21 @@ static void pollEvents()
     sys.getChipset().syncMouse();
 }
 
+static int cpuThreadFunc(void *data)
+{
+    auto &cpu = sys.getCPU();
+
+    // FIXME: probably should lock around doing inputs
+
+    while(!quit)
+    {
+        cpu.run(1);
+
+        sys.getChipset().updateForDisplay(); // this just tries to make sure the PIT doesn't get too far behind
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     int screenWidth = 640;
@@ -560,22 +574,12 @@ int main(int argc, char *argv[])
     // timer
     SDL_AddTimerNS(838, systemTimerCallback, &sys); // ~1.193MHz
 
-    auto lastTick = SDL_GetTicks();
+    auto cpuThread = SDL_CreateThread(cpuThreadFunc, "CPU", nullptr);
 
     while(!quit)
     {
         pollEvents();
 
-        auto now = SDL_GetTicks();
-
-        int step = std::min(15, int(now - lastTick));
-        cpu.run(step);
-
-        sys.getChipset().updateForDisplay(); // this just tries to make sure the PIT doesn't get too far behind
-
-        lastTick = now;
-
-        // this is a placeholder
         auto [outputW, outputH] = vgaCard.getOutputResolution();
 
         SDL_Surface *surface;
