@@ -57,7 +57,7 @@ void update_key_state(ATScancode code, bool state)
 
 void update_mouse_state(int8_t x, int8_t y, bool left, bool right)
 {
-    auto chipset = sys.getChipset();
+    auto &chipset = sys.getChipset();
     chipset.addMouseMotion(x, y);
     chipset.setMouseButton(0, left);
     chipset.setMouseButton(1, right);
