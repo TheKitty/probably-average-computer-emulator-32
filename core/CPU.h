@@ -167,6 +167,8 @@ private:
 
     bool getPhysicalAddress(uint32_t virtAddr, uint32_t &physAddr, bool forWrite = false, bool privileged = false);
 
+    bool lookupPageTable(uint32_t virtAddr, uint32_t &physAddr, bool forWrite, bool user);
+
     std::tuple<uint32_t, Reg16> getEffectiveAddress(int mod, int rm, bool rw, uint32_t addr);
     uint32_t getRMDispEnd(uint8_t modRM, uint32_t nextAddr, bool addressSize32);
 

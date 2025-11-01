@@ -6556,6 +6556,17 @@ bool RAM_FUNC(CPU::getPhysicalAddress)(uint32_t virtAddr, uint32_t &physAddr, bo
         return true;
     }
 
+    return lookupPageTable(virtAddr, physAddr, forWrite, user);
+}
+
+bool RAM_FUNC(CPU::lookupPageTable)(uint32_t virtAddr, uint32_t &physAddr, bool forWrite, bool user)
+{
+    auto pageFault = [this](bool protection, bool write, uint32_t virtAddr)
+    {
+        reg(Reg32::CR2) = virtAddr;
+        fault(Fault::PF, (protection ? 1 : 0) | (write ? 2 : 0) | (cpl == 3 ? 4 : 0));
+    };
+
     auto dir = virtAddr >> 22;
     auto page = (virtAddr >> 12) & 0x3FF;
 
@@ -6613,6 +6624,7 @@ bool RAM_FUNC(CPU::getPhysicalAddress)(uint32_t virtAddr, uint32_t &physAddr, bo
     // add to TLB
     // IDK how we should allocate this so just go around
     // make sure we get the dirty bit
+    int set = (virtAddr >> 30) & 3;
     tlb[set * 8 + tlbIndex].tag = (virtAddr & 0xFFFFF000) | (combinedFlags & 0xFFF) | (forWrite ? Page_Dirty : 0);
     tlb[set * 8 + tlbIndex].data = pageEntry & 0xFFFFF000;
 
