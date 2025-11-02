@@ -1,0 +1,106 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - '**' # only run on branches
+  pull_request:
+  release:
+    types: [created]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+
+  build:
+
+    name: ${{matrix.name}}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            name: Linux
+            release-suffix: LIN64
+            apt-packages: libsdl3-dev
+
+          #- os: windows-latest
+          #  name: Windows
+          #  release-suffix: WIN64
+
+          #- os: ubuntu-24.04
+          #  name: RP2350 Stamp XL
+          #  cache-key: stamp-xl
+          #  release-suffix: RP2350StampXL
+          #  cmake-args: -DPICO_SDK_PATH=$GITHUB_WORKSPACE/pico-sdk -DPICO_BOARD=solderparty_rp2350_stamp_xl
+          #  apt-packages: gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          #  is-pico: true
+
+    runs-on: ${{matrix.os}}
+
+    env:
+      RELEASE_FILE: ${{github.event.repository.name}}-${{github.event.release.tag_name}}-${{matrix.release-suffix}}
+
+    steps:
+    # Check out the main repo
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: main
+
+    # pico sdk
+    - name: Checkout Pico SDK
+      if: matrix.is-pico
+      uses: actions/checkout@v4
+      with:
+        repository: raspberrypi/pico-sdk
+        path: pico-sdk
+        submodules: true
+
+    # Linux dependencies
+    - name: Install Linux deps
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt update && sudo apt install ${{matrix.apt-packages}}
+        pip3 install 32blit
+
+    - uses: libsdl-org/setup-sdl@main
+      id: sdl
+      with:
+        install-linux-dependencies: true
+        version: 3-latest
+        build-type: Release
+
+    # grab a BIOS
+    # some things don't quite work with this one, but at least we can compile
+    #- name: Download BIOS
+    #  if: matrix.is-pico
+    #  working-directory: main
+    #  run: wget -O bios-xt.rom https://github.com/skiselev/8088_bios/blob/v1.0.0/binaries/bios-xt.bin
+
+    # Set up the cmake build environment
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{runner.workspace}}/main/build
+
+    # Ask cmake to build the makefiles
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{runner.workspace}}/main/build
+      run: ${{matrix.cmake-prefix}} cmake $GITHUB_WORKSPACE/main -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCPACK_PACKAGE_FILE_NAME=${{env.RELEASE_FILE}} -DCMAKE_INSTALL_PREFIX=$RUNNER_WORKSPACE/main/build/install ${{matrix.cmake-args}}
+
+    # And then run the build itself
+    - name: Build
+      working-directory: ${{runner.workspace}}/main/build
+      shell: bash
+      run: |
+        cmake --build . --config $BUILD_TYPE -j 2
+
+    - name: Prepare Artifact
+      shell: bash
+      run: cmake --build $RUNNER_WORKSPACE/main/build --config $BUILD_TYPE --target install
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{github.event.repository.name}}-${{github.sha}}-${{matrix.name}}
+        path: ${{runner.workspace}}/main/build/install
