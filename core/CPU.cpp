@@ -82,7 +82,7 @@ static constexpr bool parity(uint8_t v)
 template<class T>
 static constexpr T signBit()
 {
-    return 1 << ((sizeof(T) * 8) - 1);
+    return 1u << ((sizeof(T) * 8) - 1);
 }
 
 template<class T>
@@ -1078,8 +1078,8 @@ void RAM_FUNC(CPU::executeInstruction)()
                             reg(Reg16::TR) = selector;
 
                             // write access back
-                            auto addr = (selector >> 3) * 8 + gdtBase;
-                            writeMem8(addr + 5, newDesc.flags >> 16, true);
+                            auto descAddr = (selector >> 3) * 8 + gdtBase;
+                            writeMem8(descAddr + 5, newDesc.flags >> 16, true);
 
                             reg(Reg32::EIP) += 2;
                             break;
@@ -5492,15 +5492,15 @@ void RAM_FUNC(CPU::executeInstruction)()
 
         case 0xD7: // XLAT
         {
-            uint32_t addr;
+            uint32_t memAddr;
             if(addressSize32)
-                addr = reg(Reg32::EBX) + reg(Reg8::AL);
+                memAddr = reg(Reg32::EBX) + reg(Reg8::AL);
             else
-                addr = (reg(Reg16::BX) + reg(Reg8::AL)) & 0xFFFF;
+                memAddr = (reg(Reg16::BX) + reg(Reg8::AL)) & 0xFFFF;
 
             auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
 
-            readMem8(addr, segment, reg(Reg8::AL));
+            readMem8(memAddr, segment, reg(Reg8::AL));
             break;
         }
 
@@ -7221,8 +7221,6 @@ bool CPU::getTSSStackPointer(int dpl, uint32_t &newSP, uint16_t &newSS)
         return readMem16(tsDesc.base + tssAddr + 0, newSP, true)  // SP[DPL]
             && readMem16(tsDesc.base + tssAddr + 2, newSS, true); // SS[DPL]
     }
-
-    return true;
 }
 
 bool RAM_FUNC(CPU::checkIOPermission)(uint16_t addr)

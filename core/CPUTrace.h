@@ -60,9 +60,9 @@ public:
 private:
     struct TraceEntry
     {
-        uint32_t addr = ~0;
-        uint32_t physAddr = ~0;
-        uint8_t opcode0 = ~0;
+        uint32_t addr = ~0u;
+        uint32_t physAddr = ~0u;
+        uint8_t opcode0 = 0xFF;
         bool code32;
         uint32_t regs[20];
         uint32_t flags;
