@@ -1442,6 +1442,18 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
 
 const uint8_t *System::mapAddress(uint32_t addr) const
 {
+    if(addr >= maxAddress)
+        return nullptr;
+
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
+
+    auto block = addr / blockSize;
+    auto ptr = memMap[block];
+
+    if(ptr)
+        return ptr + addr;
+
     return nullptr;
 }
 
