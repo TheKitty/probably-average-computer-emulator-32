@@ -802,29 +802,7 @@ void RAM_FUNC(CPU::executeInstruction)()
 
     auto pop = [this](bool is32, uint32_t &v)
     {
-        uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-
-        if(is32)
-        {
-            if(!readMem32(sp, Reg16::SS, v))
-                return false;
-        }
-        else
-        {
-            uint16_t tmp;
-            if(!readMem16(sp, Reg16::SS, tmp))
-                return false;
-            v = tmp;
-        }
-
-        sp += is32 ? 4 : 2;
-
-        if(stackAddrSize32)
-            reg(Reg32::ESP) = sp;
-        else
-            reg(Reg16::SP) = sp;
-
-        return true;
+        return doPop(v, is32, stackAddrSize32);
     };
 
     // for use when we've already validated SP
@@ -838,24 +816,7 @@ void RAM_FUNC(CPU::executeInstruction)()
     // sometimes we need to check values (segments) before affecting SP
     auto peek = [this](bool is32, int offset, uint32_t &v, int byteOffset = 0)
     {
-        uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
-
-        sp += offset * (is32 ? 4 : 2) + byteOffset;
-
-        if(!stackAddrSize32)
-            sp &= 0xFFFF;
-        
-        if(is32)
-            return readMem32(sp, Reg16::SS, v);
-        else
-        {
-            uint16_t tmp;
-            if(!readMem16(sp, Reg16::SS, tmp))
-                return false;
-            v = tmp;
-        }
-
-        return true;
+        return doPeek(v, is32, stackAddrSize32, offset, byteOffset);
     };
 
     switch(opcode)
@@ -7721,6 +7682,57 @@ bool RAM_FUNC(CPU::doPush)(uint32_t val, bool op32, bool addr32, bool isSegmentR
         reg(Reg32::ESP) = sp;
     else
         reg(Reg16::SP) = sp;
+
+    return true;
+}
+
+bool RAM_FUNC(CPU::doPop)(uint32_t &val, bool op32, bool addr32)
+{
+    uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
+
+    if(op32)
+    {
+        if(!readMem32(sp, Reg16::SS, val))
+            return false;
+    }
+    else
+    {
+        uint16_t tmp;
+        if(!readMem16(sp, Reg16::SS, tmp))
+            return false;
+        val = tmp;
+    }
+
+    sp += op32 ? 4 : 2;
+
+    if(stackAddrSize32)
+        reg(Reg32::ESP) = sp;
+    else
+        reg(Reg16::SP) = sp;
+
+    return true;
+}
+
+// sometimes we need to check values (segments) before affecting SP
+// offset is in words, byteOffset is for far RET to outer (with stack adjustment)
+bool RAM_FUNC(CPU::doPeek)(uint32_t &val, bool op32, bool addr32, int offset, int byteOffset)
+{
+    uint32_t sp = stackAddrSize32 ? reg(Reg32::ESP) : reg(Reg16::SP);
+
+    sp += offset * (op32 ? 4 : 2) + byteOffset;
+
+    if(!stackAddrSize32)
+        sp &= 0xFFFF;
+    
+    if(op32)
+        return readMem32(sp, Reg16::SS, val);
+    else
+    {
+        uint16_t tmp;
+        if(!readMem16(sp, Reg16::SS, tmp))
+            return false;
+        val = tmp;
+    }
 
     return true;
 }
