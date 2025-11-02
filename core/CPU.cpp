@@ -7410,18 +7410,6 @@ bool RAM_FUNC(CPU::isOperandSize32)(bool override)
     return override;
 }
 
-bool RAM_FUNC(CPU::isStackAddressSize32)()
-{
-    if(isProtectedMode() && !(flags & Flag_VM))
-    {
-        // B bit in SS descriptor
-        // (same bit as D)
-        return getCachedSegmentDescriptor(Reg16::SS).flags & SD_Size;
-    }
-
-    return false;
-}
-
 bool RAM_FUNC(CPU::readRM8)(uint8_t modRM, uint8_t &v, uint32_t addr, int additionalOffset)
 {
     auto mod = modRM >> 6;
