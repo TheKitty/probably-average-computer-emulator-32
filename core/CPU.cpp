@@ -5644,7 +5644,7 @@ bool CPU::readMem16(uint32_t offset, uint16_t &data, bool privileged)
     if(!getPhysicalAddress(offset, physAddr, false, privileged))
         return false;
 
-    data = sys.readMem(physAddr) | sys.readMem(physAddr + 1) << 8;
+    data = sys.readMem16(physAddr);
     return true;
 }
 

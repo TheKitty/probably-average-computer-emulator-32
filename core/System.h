@@ -239,9 +239,11 @@ public:
     void removeIODevice(IODevice *dev);
 
     uint8_t readMem(uint32_t addr);
+    uint16_t readMem16(uint32_t addr);
     uint32_t readMem32(uint32_t addr);
     void writeMem(uint32_t addr, uint8_t data);
 
+    uint16_t readMem16WithCallback(uint32_t addr);
     uint32_t readMem32WithCallback(uint32_t addr);
 
     const uint8_t *mapAddress(uint32_t addr) const;

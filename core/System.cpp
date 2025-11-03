@@ -1387,6 +1387,25 @@ uint8_t RAM_FUNC(System::readMem)(uint32_t addr)
     return 0xFF;
 }
 
+uint16_t RAM_FUNC(System::readMem16)(uint32_t addr)
+{
+    if(addr >= maxAddress)
+        return 0xFFFF;
+
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
+
+    auto block = addr / blockSize;
+
+    auto ptr = memMap[block];
+
+    if(ptr)
+        return *reinterpret_cast<uint16_t *>(ptr + addr);
+
+    // final attempt for complicated mappings
+    return readMem16WithCallback(addr);
+}
+
 uint32_t RAM_FUNC(System::readMem32)(uint32_t addr)
 {
     if(addr >= maxAddress)
@@ -1433,7 +1452,18 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
         memWriteCb(addr, data, memAccessUserData);
 }
 
-// this is split to a separate function to optimise the significantly more common case of accessing regular memory
+// these are split to a separate function to optimise the significantly more common case of accessing regular memory
+[[gnu::noinline]]
+uint16_t RAM_FUNC(System::readMem16WithCallback)(uint32_t addr)
+{
+    if(memReadCb && addr >= memAccessCbBase && addr < memAccessCbEnd)
+    {
+        return memReadCb(addr + 0, memAccessUserData)      |
+               memReadCb(addr + 1, memAccessUserData) << 8;
+    }
+    return 0xFFFF;
+}
+
 [[gnu::noinline]]
 uint32_t RAM_FUNC(System::readMem32WithCallback)(uint32_t addr)
 {
