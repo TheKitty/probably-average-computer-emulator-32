@@ -1571,204 +1571,52 @@ void CPU::executeInstruction()
 
         case 0x6C: // INS byte
         {
-            int step = (flags & Flag_D) ? -1 : 1;
-
             auto port = reg(Reg16::DX);
 
             if(!checkIOPermission(port))
                 break;
 
-            uint32_t di;
-            if(addressSize32)
-                di = reg(Reg32::EDI);
-            else
-                di = reg(Reg16::DI);
-
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(!writeMem8(di, Reg16::ES, sys.readIOPort(port)))
-                        break;
-
-                    di += step;
-
-                    if(!addressSize32)
-                        di &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else if(writeMem8(di, Reg16::ES, sys.readIOPort(port)))
-                di += step;
-
-            if(addressSize32)
-                reg(Reg32::EDI) = di;
-            else
-                reg(Reg16::DI) = di;
-
+            doStringOp<&CPU::doINS8, false, true, 1>(addressSize32, segmentOverride, rep);
             break;
         }
         case 0x6D: // INS word
         {
-            int step = (flags & Flag_D) ? -2 : 2;
-
-            if(operandSize32)
-                step *= 2;
-
             auto port = reg(Reg16::DX);
 
             if(!checkIOPermission(port))
                 break;
 
-            uint32_t di;
-            if(addressSize32)
-                di = reg(Reg32::EDI);
+            if(operandSize32)
+                doStringOp<&CPU::doINS32, false, true, 4>(addressSize32, segmentOverride, rep);
             else
-                di = reg(Reg16::DI);
+                doStringOp<&CPU::doINS16, false, true, 2>(addressSize32, segmentOverride, rep);
 
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
+            break;
+        }
 
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(operandSize32)
-                    {
-                        auto v = sys.readIOPort16(port) | sys.readIOPort16(port + 2);
-                        if(!writeMem32(di, Reg16::ES, v))
-                            break;
-                    }
-                    else if(!writeMem16(di, Reg16::ES, sys.readIOPort16(port)))
-                        break;
+        case 0x6E: // OUTS byte
+        {
+            auto port = reg(Reg16::DX);
 
-                    di += step;
+            if(!checkIOPermission(port))
+                break;
 
-                    if(!addressSize32)
-                        di &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(operandSize32)
-                {
-                    auto v = sys.readIOPort16(port) | sys.readIOPort16(port + 2);
-                    if(!writeMem32(di, Reg16::ES, v))
-                        break;
-                }
-                else if(!writeMem16(di, Reg16::ES, sys.readIOPort16(port)))
-                    break;
-
-                di += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::EDI) = di;
-            else
-                reg(Reg16::DI) = di;
+            doStringOp<&CPU::doOUTS8, true, false, 1>(addressSize32, segmentOverride, rep);
             break;
         }
 
         case 0x6F: // OUTS word
         {
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            int step = (flags & Flag_D) ? -2 : 2;
-
-            if(operandSize32)
-                step *= 2;
-
             auto port = reg(Reg16::DX);
 
             if(!checkIOPermission(port))
                 break;
 
-            uint32_t si;
-            if(addressSize32)
-                si = reg(Reg32::ESI);
+            if(operandSize32)
+                doStringOp<&CPU::doOUTS32, true, false, 4>(addressSize32, segmentOverride, rep);
             else
-                si = reg(Reg16::SI);
+                doStringOp<&CPU::doOUTS16, true, false, 2>(addressSize32, segmentOverride, rep);
 
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(operandSize32)
-                    {
-                        uint32_t v;
-                        if(!readMem32(si, segment, v))
-                            break;
-
-                        sys.writeIOPort16(port, v);
-                        sys.writeIOPort16(port + 2, v >> 16);
-                    }
-                    else
-                    {
-                        uint16_t v;
-                        if(!readMem16(si, segment, v))
-                            break;
-
-                        sys.writeIOPort16(port, v);
-                    }
-
-                    si += step;
-
-                    if(!addressSize32)
-                        si &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(operandSize32)
-                {
-                    uint32_t v;
-                    if(!readMem32(si, segment, v))
-                        break;
-
-                    sys.writeIOPort16(port, v);
-                    sys.writeIOPort16(port + 2, v >> 16);
-                }
-                else
-                {
-                    uint16_t v;
-                    if(!readMem16(si, segment, v))
-                        break;
-
-                    sys.writeIOPort16(port, v);
-                }
-
-                si += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::ESI) = si;
-            else
-                reg(Reg16::SI) = si;
             break;
         }
     
@@ -2591,157 +2439,16 @@ void CPU::executeInstruction()
 
         case 0xA4: // MOVS byte
         {
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            int step = (flags & Flag_D) ? -1 : 1;
-
-            uint32_t si, di;
-            if(addressSize32)
-            {
-                si = reg(Reg32::ESI);
-                di = reg(Reg32::EDI);
-            }
-            else
-            {
-                si = reg(Reg16::SI);
-                di = reg(Reg16::DI);
-            }
-
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    uint8_t v;
-                    if(!readMem8(si, segment, v) || !writeMem8(di, Reg16::ES, v))
-                        break;
-
-                    si += step;
-                    di += step;
-
-                    if(!addressSize32)
-                    {
-                        si &= 0xFFFF;
-                        di &= 0xFFFF;
-                    }
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                uint8_t v;
-                if(!readMem8(si, segment, v) || !writeMem8(di, Reg16::ES, v))
-                    break;
-
-                si += step;
-                di += step;
-            }
-
-            if(addressSize32)
-            {
-                reg(Reg32::ESI) = si;
-                reg(Reg32::EDI) = di;
-            }
-            else
-            {
-                reg(Reg16::SI) = si;
-                reg(Reg16::DI) = di;
-            }
+            doStringOp<&CPU::doMOVS8, true, true, 1>(addressSize32, segmentOverride, rep);
             break;
         }
         case 0xA5: // MOVS word
         {
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            int step = (flags & Flag_D) ? -2 : 2;
-
             if(operandSize32)
-                step *= 2;
-
-            uint32_t si, di;
-            if(addressSize32)
-            {
-                si = reg(Reg32::ESI);
-                di = reg(Reg32::EDI);
-            }
+                doStringOp<&CPU::doMOVS32, true, true, 4>(addressSize32, segmentOverride, rep);
             else
-            {
-                si = reg(Reg16::SI);
-                di = reg(Reg16::DI);
-            }
+                doStringOp<&CPU::doMOVS16, true, true, 2>(addressSize32, segmentOverride, rep);
 
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(operandSize32)
-                    {
-                        uint32_t v;
-                        if(!readMem32(si, segment, v) || !writeMem32(di, Reg16::ES, v))
-                            break;
-                    }
-                    else
-                    {
-                        uint16_t v;
-                        if(!readMem16(si, segment, v) || !writeMem16(di, Reg16::ES, v))
-                            break;
-                    }
-
-                    si += step;
-                    di += step;
-
-                    if(!addressSize32)
-                    {
-                        si &= 0xFFFF;
-                        di &= 0xFFFF;
-                    }
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(operandSize32)
-                {
-                    uint32_t v;
-                    if(!readMem32(si, segment, v) || !writeMem32(di, Reg16::ES, v))
-                        break;
-                }
-                else
-                {
-                    uint16_t v;
-                    if(!readMem16(si, segment, v) || !writeMem16(di, Reg16::ES, v))
-                        break;
-                }
-
-                si += step;
-                di += step;
-            }
-
-            if(addressSize32)
-            {
-                reg(Reg32::ESI) = si;
-                reg(Reg32::EDI) = di;
-            }
-            else
-            {
-                reg(Reg16::SI) = si;
-                reg(Reg16::DI) = di;
-            }
             break;
         }
         case 0xA6: // CMPS byte
@@ -2960,219 +2667,29 @@ void CPU::executeInstruction()
 
         case 0xAA: // STOS byte
         {
-            int step = (flags & Flag_D) ? -1 : 1;
-
-            uint32_t di;
-            if(addressSize32)
-                di = reg(Reg32::EDI);
-            else
-                di = reg(Reg16::DI);
-
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(!writeMem8(di, Reg16::ES, reg(Reg8::AL)))
-                        break;
-
-                    di += step;
-
-                    if(!addressSize32)
-                        di &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(!writeMem8(di, Reg16::ES, reg(Reg8::AL)))
-                    break;
-
-                di += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::EDI) = di;
-            else
-                reg(Reg16::DI) = di;
+            doStringOp<&CPU::doSTOS8, false, true, 1>(addressSize32, segmentOverride, rep);
             break;
         }
         case 0xAB: // STOS word
         {
-            int step = (flags & Flag_D) ? -2 : 2;
-
             if(operandSize32)
-                step *= 2;
-
-            uint32_t di;
-            if(addressSize32)
-                di = reg(Reg32::EDI);
+                doStringOp<&CPU::doSTOS32, false, true, 4>(addressSize32, segmentOverride, rep);
             else
-                di = reg(Reg16::DI);
+                doStringOp<&CPU::doSTOS16, false, true, 2>(addressSize32, segmentOverride, rep);
 
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(operandSize32)
-                    {
-                        if(!writeMem32(di, Reg16::ES, reg(Reg32::EAX)))
-                            break;
-                    }
-                    else if(!writeMem16(di, Reg16::ES, reg(Reg16::AX)))
-                        break;
-
-                    di += step;
-
-                    if(!addressSize32)
-                        di &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(operandSize32)
-                {
-                    if(!writeMem32(di, Reg16::ES, reg(Reg32::EAX)))
-                        break;
-                }
-                else if(!writeMem16(di, Reg16::ES, reg(Reg16::AX)))
-                    break;
-
-                di += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::EDI) = di;
-            else
-                reg(Reg16::DI) = di;
             break;
         }
         case 0xAC: // LODS byte
         {
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            int step = (flags & Flag_D) ? -1 : 1;
-
-            uint32_t si;
-            if(addressSize32)
-                si = reg(Reg32::ESI);
-            else
-                si = reg(Reg16::SI);
-
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(!readMem8(si, segment, reg(Reg8::AL)))
-                        break;
-
-                    si += step;
-
-                    if(!addressSize32)
-                        si &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(!readMem8(si, segment, reg(Reg8::AL)))
-                    break;
-
-                si += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::ESI) = si;
-            else
-                reg(Reg16::SI) = si;
-
+            doStringOp<&CPU::doLODS8, true, false, 1>(addressSize32, segmentOverride, rep);
             break;
         }
         case 0xAD: // LODS word
         {
-            auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
-            int step = (flags & Flag_D) ? -2 : 2;
-
             if(operandSize32)
-                step *= 2;
-
-            uint32_t si;
-            if(addressSize32)
-                si = reg(Reg32::ESI);
+                doStringOp<&CPU::doLODS32, true, false, 4>(addressSize32, segmentOverride, rep);
             else
-                si = reg(Reg16::SI);
-
-            if(rep)
-            {
-                uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
-
-                while(count)
-                {
-                    // TODO: interrupt
-                    if(operandSize32)
-                    {
-                        if(!readMem32(si, segment, reg(Reg32::EAX)))
-                            break;
-                    }
-                    else if(!readMem16(si, segment, reg(Reg16::AX)))
-                        break;
-
-                    si += step;
-
-                    if(!addressSize32)
-                        si &= 0xFFFF;
-
-                    count--;
-                }
-
-                if(addressSize32)
-                    reg(Reg32::ECX) = count;
-                else
-                    reg(Reg16::CX) = count;
-            }
-            else
-            {
-                if(operandSize32)
-                {
-                    if(!readMem32(si, segment, reg(Reg32::EAX)))
-                        break;
-                }
-                else if(!readMem16(si, segment, reg(Reg16::AX)))
-                    break;
-
-                si += step;
-            }
-
-            if(addressSize32)
-                reg(Reg32::ESI) = si;
-            else
-                reg(Reg16::SI) = si;
+                doStringOp<&CPU::doLODS16, true, false, 2>(addressSize32, segmentOverride, rep);
 
             break;
         }
@@ -7656,6 +7173,170 @@ void CPU::doALU32AImm(uint32_t addr)
     reg(Reg32::EAX) = op(reg(Reg32::EAX), imm, flags);
 
     reg(Reg32::EIP) += 4;
+}
+
+template<CPU::StringOp op, bool useSI, bool useDI, int wordSize>
+void CPU::doStringOp(bool addressSize32, Reg16 segmentOverride, bool rep)
+{
+    auto segment = segmentOverride == Reg16::AX ? Reg16::DS : segmentOverride;
+    int step = (flags & Flag_D) ? -wordSize : wordSize;
+
+    uint32_t si = 0, di = 0;
+    if(addressSize32)
+    {
+        if(useSI) si = reg(Reg32::ESI);
+        if(useDI) di = reg(Reg32::EDI);
+    }
+    else
+    {
+        if(useSI) si = reg(Reg16::SI);
+        if(useDI) di = reg(Reg16::DI);
+    }
+
+    if(rep)
+    {
+        uint32_t count = addressSize32 ? reg(Reg32::ECX) : reg(Reg16::CX);
+
+        while(count)
+        {
+            // TODO: interrupt
+            if(!(this->*op)(si, segment, di))
+                break;
+
+            if(useSI) si += step;
+            if(useDI) di += step;
+
+            if(!addressSize32)
+            {
+                if(useSI) si &= 0xFFFF;
+                if(useDI) di &= 0xFFFF;
+            }
+
+            count--;
+        }
+
+        if(addressSize32)
+            reg(Reg32::ECX) = count;
+        else
+            reg(Reg16::CX) = count;
+    }
+    else
+    {
+        if(!(this->*op)(si, segment, di))
+            return;
+
+        if(useSI) si += step;
+        if(useDI) di += step;
+    }
+
+    if(addressSize32)
+    {
+        if(useSI) reg(Reg32::ESI) = si;
+        if(useDI) reg(Reg32::EDI) = di;
+    }
+    else
+    {
+        if(useSI) reg(Reg16::SI) = si;
+        if(useDI) reg(Reg16::DI) = di;
+    }
+}
+
+// maybe could reduce these with even more templates, but...
+bool CPU::doINS8(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return writeMem8(di, Reg16::ES, sys.readIOPort(reg(Reg16::DX)));
+}
+
+bool CPU::doINS16(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return writeMem16(di, Reg16::ES, sys.readIOPort16(reg(Reg16::DX)));
+}
+
+bool CPU::doINS32(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    auto v = sys.readIOPort16(reg(Reg16::DX)) | sys.readIOPort16(reg(Reg16::DX) + 2);
+    return writeMem32(di, Reg16::ES, v);
+}
+
+bool CPU::doOUTS8(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint8_t v;
+    if(!readMem8(si, srcSeg, v))
+        return false;
+
+    sys.writeIOPort(reg(Reg16::DX), v);
+    return true;
+}
+
+bool CPU::doOUTS16(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint16_t v;
+    if(!readMem16(si, srcSeg, v))
+        return false;
+
+    sys.writeIOPort16(reg(Reg16::DX), v);
+
+    return true;
+}
+
+bool CPU::doOUTS32(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint32_t v;
+    if(!readMem32(si, srcSeg, v))
+        return false;
+
+    sys.writeIOPort16(reg(Reg16::DX), v);
+    sys.writeIOPort16(reg(Reg16::DX) + 2, v >> 16);
+
+    return true;
+}
+
+bool CPU::doMOVS8(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint8_t v;
+    return readMem8(si, srcSeg, v) && writeMem8(di, Reg16::ES, v);
+}
+
+bool CPU::doMOVS16(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint16_t v;
+    return readMem16(si, srcSeg, v) && writeMem16(di, Reg16::ES, v);
+}
+
+bool CPU::doMOVS32(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    uint32_t v;
+    return readMem32(si, srcSeg, v) && writeMem32(di, Reg16::ES, v);
+}
+
+bool CPU::doSTOS8(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return writeMem8(di, Reg16::ES, reg(Reg8::AL));
+}
+
+bool CPU::doSTOS16(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return writeMem16(di, Reg16::ES, reg(Reg16::AX));
+}
+
+bool CPU::doSTOS32(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return writeMem32(di, Reg16::ES, reg(Reg32::EAX));
+}
+
+bool CPU::doLODS8(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return readMem8(si, srcSeg, reg(Reg8::AL));
+}
+
+bool CPU::doLODS16(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return readMem16(si, srcSeg, reg(Reg16::AX));
+}
+
+bool CPU::doLODS32(uint32_t si, Reg16 srcSeg, uint32_t di)
+{
+    return readMem32(si, srcSeg, reg(Reg32::EAX));
 }
 
 bool CPU::doPush(uint32_t val, bool op32, bool addr32, bool isSegmentReg)
