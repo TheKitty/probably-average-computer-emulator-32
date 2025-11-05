@@ -5292,25 +5292,22 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
 
             uint32_t data;
             bool value;
-            int off;
 
             if(operandSize32)
             {
-                off = (bit / 32) * 4;
                 bit &= 31;
 
-                if(!readRM32(modRM, data, addr + 1, off))
+                if(!readRM32(modRM, data, addr + 1))
                     break;
 
                 value = data & (1 << bit);
             }
             else
             {
-                off = (bit / 16) * 2;
                 bit &= 15;
 
                 uint16_t data16;
-                if(!readRM16(modRM, data16, addr + 1, off))
+                if(!readRM16(modRM, data16, addr + 1))
                     break;
 
                 value = data16 & (1 << bit);
@@ -5324,27 +5321,27 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 case 5: // BTS
                 {
                     if(operandSize32)
-                        writeRM32(modRM, data | 1 << bit, addr + 1, true, off);
+                        writeRM32(modRM, data | 1 << bit, addr + 1, true);
                     else
-                        writeRM16(modRM, data | 1 << bit, addr + 1, true, off);
+                        writeRM16(modRM, data | 1 << bit, addr + 1, true);
 
                     break;
                 }
                 case 6: // BTR
                 {
                     if(operandSize32)
-                        writeRM32(modRM, data & ~(1 << bit), addr + 1, true, off);
+                        writeRM32(modRM, data & ~(1 << bit), addr + 1, true);
                     else
-                        writeRM16(modRM, data & ~(1 << bit), addr + 1, true, off);
+                        writeRM16(modRM, data & ~(1 << bit), addr + 1, true);
 
                     break;
                 }
                 case 7: // BTC
                 {
                     if(operandSize32)
-                        writeRM32(modRM, data ^ ~(1 << bit), addr + 1, true, off);
+                        writeRM32(modRM, data ^ (1 << bit), addr + 1, true);
                     else
-                        writeRM16(modRM, data ^ ~(1 << bit), addr + 1, true, off);
+                        writeRM16(modRM, data ^ (1 << bit), addr + 1, true);
 
                     break;
                 }
