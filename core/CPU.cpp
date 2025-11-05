@@ -3091,15 +3091,14 @@ void CPU::executeInstruction()
             }
 
             if(operandSize32)
-            {
                 reg(Reg32::EBP) = frameTemp;
-                reg(Reg32::ESP) -= allocSize;
-            }
             else
-            {
                 reg(Reg16::BP) = frameTemp;
+
+            if(stackAddrSize32)
+                reg(Reg32::ESP) -= allocSize;
+            else
                 reg(Reg16::SP) -= allocSize;
-            }
 
             reg(Reg32::EIP) += 3;
             break;
