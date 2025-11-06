@@ -3783,6 +3783,12 @@ void CPU::executeInstruction()
 
                         reg(Reg32::EIP)++;
                     }
+
+                    // "undefined"
+                    // this is not entirely correct
+                    flags = (flags & ~(Flag_Z))
+                          | (num && reg(Reg8::AH) == 0 ? Flag_Z : 0);
+
                     break;
                 }
                 case 7: // IDIV
@@ -3961,6 +3967,10 @@ void CPU::executeInstruction()
 
                             reg(Reg32::EIP)++;
                         }
+
+                        // "undefined"
+                        flags = (flags & ~(Flag_Z))
+                              | (num && reg(Reg32::EDX) == 0 ? Flag_Z : 0);
                     }
                     else
                     {
@@ -3975,6 +3985,10 @@ void CPU::executeInstruction()
 
                             reg(Reg32::EIP)++;
                         }
+
+                        // "undefined"
+                        flags = (flags & ~(Flag_Z))
+                              | (num && reg(Reg16::DX) == 0 ? Flag_Z : 0);
                     }
                     break;
                 }
