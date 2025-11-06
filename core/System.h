@@ -55,6 +55,7 @@ public:
 
     // DMA
     void dmaRequest(int ch, bool active, IODevice *dev = nullptr);
+    uint16_t getDMAWordCount(int ch);
     void updateDMA();
     bool needDMAUpdate() const {return dma.request & ~dma.mask;}
 

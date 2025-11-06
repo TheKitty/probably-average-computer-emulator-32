@@ -552,6 +552,11 @@ void Chipset::dmaRequest(int ch, bool active, IODevice *dev)
         dma.request &= ~(1 << ch);
 }
 
+uint16_t Chipset::getDMAWordCount(int ch)
+{
+    return dma.currentWordCount[ch];
+}
+
 void Chipset::updateDMA()
 {
     // disabled
