@@ -16,24 +16,32 @@ uint32_t FileFloppyIO::getLBA(int unit, uint8_t cylinder, uint8_t head, uint8_t 
     return ((cylinder * heads + head) * sectorsPerTrack[unit]) + sector - 1;
 }
 
-bool FileFloppyIO::read(int unit, uint8_t *buf, uint32_t lba)
+bool FileFloppyIO::read(FloppyController *controller, int unit, uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
 
     file[unit].clear();
 
-    return file[unit].seekg(lba * 512).read(reinterpret_cast<char *>(buf), 512).gcount() == 512;
+    bool success = file[unit].seekg(lba * 512).read(reinterpret_cast<char *>(buf), 512).gcount() == 512;
+
+    controller->ioComplete(unit, success, false);
+
+    return success;
 }
 
-bool FileFloppyIO::write(int unit, const uint8_t *buf, uint32_t lba)
+bool FileFloppyIO::write(FloppyController *controller, int unit, const uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
 
     file[unit].clear();
 
-    return file[unit].seekp(lba * 512).write(reinterpret_cast<const char *>(buf), 512).good();
+    bool success = file[unit].seekp(lba * 512).write(reinterpret_cast<const char *>(buf), 512).good();
+
+    controller->ioComplete(unit, success, true);
+
+    return success;
 }
 
 void FileFloppyIO::openDisk(int unit, std::string path)

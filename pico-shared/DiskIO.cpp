@@ -18,7 +18,7 @@ uint32_t FileFloppyIO::getLBA(int unit, uint8_t cylinder, uint8_t head, uint8_t 
     return ((cylinder * heads + head) * sectorsPerTrack[unit]) + sector - 1;
 }
 
-bool FileFloppyIO::read(int unit, uint8_t *buf, uint32_t lba)
+bool FileFloppyIO::read(FloppyController *controller, int unit, uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
@@ -28,10 +28,12 @@ bool FileFloppyIO::read(int unit, uint8_t *buf, uint32_t lba)
     UINT read = 0;
     auto res = f_read(&file[unit], buf, 512, &read);
 
+    controller->ioComplete(unit, res == FR_OK && read == 512, false);
+
     return res == FR_OK && read == 512;
 }
 
-bool FileFloppyIO::write(int unit, const uint8_t *buf, uint32_t lba)
+bool FileFloppyIO::write(FloppyController *controller, int unit, const uint8_t *buf, uint32_t lba)
 {
     if(unit >= maxDrives)
         return false;
@@ -40,6 +42,8 @@ bool FileFloppyIO::write(int unit, const uint8_t *buf, uint32_t lba)
 
     UINT written = 0;
     auto res = f_write(&file[unit], buf, 512, &written);
+
+    controller->ioComplete(unit, res == FR_OK && written == 512, true);
 
     return res == FR_OK && written == 512;
 }

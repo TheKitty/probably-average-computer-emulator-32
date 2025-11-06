@@ -1,6 +1,8 @@
 #pragma once
 #include "System.h"
 
+class FloppyController;
+
 class FloppyDiskIO
 {
 public:
@@ -10,10 +12,10 @@ public:
     virtual uint32_t getLBA(int unit, uint8_t cylinder, uint8_t head, uint8_t sector) = 0;
 
     // reads a 512 byte sector
-    virtual bool read(int unit, uint8_t *buf, uint32_t lba) = 0;
+    virtual bool read(FloppyController *controller, int unit, uint8_t *buf, uint32_t lba) = 0;
 
     // writes a 512 byte sector
-    virtual bool write(int device, const uint8_t *buf, uint32_t lba) = 0;
+    virtual bool write(FloppyController *controller, int device, const uint8_t *buf, uint32_t lba) = 0;
 };
 
 class FloppyController final : public IODevice
@@ -35,6 +37,8 @@ public:
     uint8_t dmaRead(int ch) override;
     void dmaWrite(int ch, uint8_t data) override;
     void dmaComplete(int ch) override;
+
+    void ioComplete(int unit, bool success, bool write);
 
 private:
     System &sys;

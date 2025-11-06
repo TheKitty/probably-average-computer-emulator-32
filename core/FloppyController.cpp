@@ -209,7 +209,7 @@ void FloppyController::write(uint16_t addr, uint8_t data)
 
                     // read first sector
                     bool failed = false;
-                    if(!io || !io->read(unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
+                    if(!io || !io->read(this, unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
                         failed = true;
 
                     status[0] = unit | head << 2;
@@ -226,13 +226,7 @@ void FloppyController::write(uint16_t addr, uint8_t data)
                     result[5] = record;
                     result[6] = number;
 
-                    if(!failed)
-                    {
-                        // start DMA if we didn't immediately fail
-                        sectorBufOffset = 0;
-                        sys.getChipset().dmaRequest(2, true, this);
-                    }
-                    else
+                    if(failed)
                     {
                         if(digitalOutput & (1 << 3))
                             sys.getChipset().flagPICInterrupt(6);
@@ -330,8 +324,10 @@ void FloppyController::write(uint16_t addr, uint8_t data)
 
 uint8_t FloppyController::dmaRead(int ch)
 {
-    // check if we need to read the next sector
-    if(sectorBufOffset == 512)
+    uint8_t ret = sectorBuf[sectorBufOffset++];
+
+    // if the DMA word count is zero this is the last transfer, so don't read the next sector
+    if(sectorBufOffset == 512 && sys.getChipset().getDMAWordCount(2))
     {
         int unit = command[1] & 3;
         auto &cylinder = command[2];
@@ -353,14 +349,16 @@ uint8_t FloppyController::dmaRead(int ch)
             }
         }
 
+        sys.getChipset().dmaRequest(2, false); // disable until new data is here
+
         // attempt to read next sector
-        if(!io || !io->read(unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
+        if(!io || !io->read(this, unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
             status[0] |= 1 << 6; // error (TODO: should we stop the DMA now?)
 
         sectorBufOffset = 0;
     }
 
-    return sectorBuf[sectorBufOffset++];
+    return ret;
 }
 
 void FloppyController::dmaWrite(int ch, uint8_t data)
@@ -376,7 +374,9 @@ void FloppyController::dmaWrite(int ch, uint8_t data)
         auto &record = command[4];
         auto endOfTrack = command[6];
 
-        if(!io || !io->write(unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
+        sys.getChipset().dmaRequest(2, false); // disable until write is done
+
+        if(!io || !io->write(this, unit, sectorBuf, io->getLBA(unit, cylinder, head, record)))
             status[0] |= 1 << 6; // error (TODO: should we stop the DMA now?)
 
         // update offset
@@ -403,4 +403,17 @@ void FloppyController::dmaComplete(int ch)
 
     if(digitalOutput & (1 << 3))
         sys.getChipset().flagPICInterrupt(6);
+}
+
+// called from IO interface when it's done reading/writing
+void FloppyController::ioComplete(int unit, bool success, bool write)
+{
+    if(success)
+    {
+        // start/continue DMA
+        sectorBufOffset = 0;
+        sys.getChipset().dmaRequest(2, true, this);
+    }
+    else
+        status[0] = 1 << 6;
 }
