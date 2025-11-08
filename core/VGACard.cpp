@@ -96,6 +96,9 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 
     if(!(gfxMisc & (1 << 0)))
     {
+        if(line == 0)
+            frame++;
+
         // text mode
         int charWidth = seqClockMode & 1 ? 8 : 9;
         int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
@@ -111,15 +114,20 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 
         auto fontPtr = plane2 + line % charHeight;
 
+        bool blinkEn = attribMode & (1 << 3);
+
         for(int i = 0; i < hDispChars; i++)
         {
             auto ch = *charPtr;
             auto attr = charPtr[0x10000]; // same addr, next plane
             charPtr += 2;
 
-            // TODO: blink
             int bg = attr >> 4;
             int fg = attr & 0xF;
+
+            // mask out the blink bit
+            if(blinkEn)
+                bg &= 7;
 
             auto bgCol = paletteLookup16(bg);
             auto fgCol = paletteLookup16(fg);
@@ -133,7 +141,8 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 
             // TODO: cursor
 
-            if(!fontLine) // skip blank chars (TODO: also do blink here)
+            // skip blank chars (also do blink here)
+            if(!fontLine || (blinkEn && attr & 0x80 && !(frame & 16)))
             {
                 for(int x = 0; x < charWidth; x++)
                     outputPixel(bgCol);
