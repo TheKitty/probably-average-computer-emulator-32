@@ -4,6 +4,10 @@
 #include <cstring>
 #include <limits>
 
+#ifdef PICO_BUILD
+#include "hardware/sync.h"
+#endif
+
 #ifdef PICO_CPU_IN_RAM
 #include "pico.h"
 #define RAM_FUNC(x) __not_in_flash_func(x)
@@ -655,6 +659,10 @@ void Chipset::setPICInput(int index, bool state)
 
     int bitMask = 1 << index;
 
+#ifdef PICO_BUILD
+    auto interrupts = save_and_disable_interrupts();
+#endif
+
     if(state)
         pic[picIndex].inputs |= bitMask;
     else
@@ -664,10 +672,17 @@ void Chipset::setPICInput(int index, bool state)
     pic[picIndex].request |= pic[picIndex].inputs & ~pic[picIndex].mask;
 
     updateMaskedPICRequest();
+
+#ifdef PICO_BUILD
+    restore_interrupts(interrupts);
+#endif
 }
 
 uint8_t Chipset::acknowledgeInterrupt()
 {
+#ifdef PICO_BUILD
+    auto interrupts = save_and_disable_interrupts();
+#endif
     auto serviceable = pic[0].request & ~pic[0].mask;
 
     int serviceIndex;
@@ -703,6 +718,10 @@ uint8_t Chipset::acknowledgeInterrupt()
 
     pic[picIndex].service |= 1 << serviceIndex;
     pic[picIndex].request &= ~(1 << serviceIndex);
+
+#ifdef PICO_BUILD
+    restore_interrupts(interrupts);
+#endif
 
     return serviceIndex | (pic[picIndex].initCommand[1] & 0xF8);
 }
