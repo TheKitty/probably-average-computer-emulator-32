@@ -354,9 +354,6 @@ void VGACard::write(uint16_t addr, uint8_t data)
         case 0x3B5: // CRTC data
         case 0x3D5:
             crtcRegs[crtcIndex] = data;
-
-            if(crtcIndex == 0x1 /*horizontal end*/ || crtcIndex == 0x7 /*overflow bits*/ || crtcIndex == 0x12 /*vertical end*/)
-                updateOutputResolution();
             break;
 
         case 0x3C0: // attribute address/data
@@ -389,6 +386,11 @@ void VGACard::write(uint16_t addr, uint8_t data)
 
             if(changed & (1 << 1))
                 setupMemory();
+
+            // this register contains the h/vsync polarity
+            // which should be the last part of setting up a mode and was how a monitor would detect the change
+            updateOutputResolution();
+
             break;
         }
 
@@ -400,7 +402,6 @@ void VGACard::write(uint16_t addr, uint8_t data)
             {
                 case 1: // clock mode
                     seqClockMode = data;
-                    updateOutputResolution();
                     break;
                 case 2: // map mask
                     seqMapMask = data;
