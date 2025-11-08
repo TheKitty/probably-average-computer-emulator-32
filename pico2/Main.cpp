@@ -108,8 +108,12 @@ static void core1FIFOHandler()
 {
     switch(multicore_fifo_pop_blocking())
     {
+        case 1: // floppy IO
+            floppyIO.ioComplete();
+            break;
         case 2: // ATA IO
             ataPrimaryIO.ioComplete();
+            break;
     }
 
     multicore_fifo_clear_irq();
@@ -276,6 +280,9 @@ int main()
         {
             switch(data)
             {
+                case 1: // floppy IO
+                    floppyIO.doCore0IO();
+                    break;
                 case 2: // ATA IO
                     ataPrimaryIO.doCore0IO();
                     break;

@@ -17,6 +17,13 @@ public:
 
     void openDisk(int unit, const char *path);
 
+    void doCore0IO();
+    void ioComplete()
+    {
+        curAccessController->ioComplete(curAccessDevice, curAccessSuccess, curAccessWrite);
+        curAccessController = nullptr;
+    }
+
     static const int maxDrives = 1;
 
 private:
@@ -24,6 +31,15 @@ private:
 
     bool doubleSided[maxDrives];
     int sectorsPerTrack[maxDrives];
+
+
+    // saved params for current access
+    FloppyController *curAccessController = nullptr;
+    int curAccessDevice;
+    uint8_t *curAccessBuf;
+    uint32_t curAccessLBA;
+    bool curAccessWrite;
+    bool curAccessSuccess;
 };
 
 class FileATAIO final : public ATADiskIO

@@ -25,14 +25,20 @@ bool FileFloppyIO::read(FloppyController *controller, int unit, uint8_t *buf, ui
     if(unit >= maxDrives)
         return false;
 
-    f_lseek(&file[unit], lba * 512);
+    if(curAccessController)
+    {
+        printf("Floppy IO already in progress! (%c %u -> R %u)\n", curAccessWrite ? 'W' : 'R', curAccessLBA, lba);
+        return false;
+    }
 
-    UINT read = 0;
-    auto res = f_read(&file[unit], buf, 512, &read);
+    curAccessController = controller;
+    curAccessDevice = unit;
+    curAccessBuf = buf;
+    curAccessLBA = lba;
+    curAccessWrite = false;
+    multicore_fifo_push_blocking(1);
 
-    controller->ioComplete(unit, res == FR_OK && read == 512, false);
-
-    return res == FR_OK && read == 512;
+    return true;
 }
 
 bool FileFloppyIO::write(FloppyController *controller, int unit, const uint8_t *buf, uint32_t lba)
@@ -40,14 +46,20 @@ bool FileFloppyIO::write(FloppyController *controller, int unit, const uint8_t *
     if(unit >= maxDrives)
         return false;
 
-    f_lseek(&file[unit], lba * 512);
+    if(curAccessController)
+    {
+        printf("Floppy IO already in progress! (%c %u -> W %u)\n", curAccessWrite ? 'W' : 'R', curAccessLBA, lba);
+        return false;
+    }
 
-    UINT written = 0;
-    auto res = f_write(&file[unit], buf, 512, &written);
+    curAccessController = controller;
+    curAccessDevice = unit;
+    curAccessBuf = const_cast<uint8_t *>(buf);
+    curAccessLBA = lba;
+    curAccessWrite = true;
+    multicore_fifo_push_blocking(1);
 
-    controller->ioComplete(unit, res == FR_OK && written == 512, true);
-
-    return res == FR_OK && written == 512;
+    return true;
 }
 
 void FileFloppyIO::openDisk(int unit, const char *path)
@@ -66,6 +78,22 @@ void FileFloppyIO::openDisk(int unit, const char *path)
     guessFloppyImageGeometry(f_size(&file[unit]), doubleSided[unit], sectorsPerTrack[unit]);
 
     printf("Loaded floppy disk %i: %s (%i heads %i sectors/track)\n", unit, path, doubleSided[unit] ? 2 : 1, sectorsPerTrack[unit]);
+}
+
+void FileFloppyIO::doCore0IO()
+{
+    f_lseek(&file[curAccessDevice], curAccessLBA * 512);
+
+    UINT accessed;
+    FRESULT res;
+    if(curAccessWrite)
+        res = f_write(&file[curAccessDevice], curAccessBuf, 512, &accessed);
+    else
+        res = f_read(&file[curAccessDevice], curAccessBuf, 512, &accessed);
+
+    curAccessSuccess = res == FR_OK && accessed == 512;
+
+    multicore_fifo_push_blocking(1);
 }
 
 uint32_t FileATAIO::getNumSectors(int unit)
