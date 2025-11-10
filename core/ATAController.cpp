@@ -519,8 +519,11 @@ void ATAController::calculateCHS(int device)
     unsigned heads = 16;
     unsigned sectorsPerTrack = 4;
 
+    // jump straight to 63 sectors per track if that works
+    if(sectors % (63 * 16) == 0)
+        sectorsPerTrack = 63;
     // adjust for small sizes that aren't a multiple of 16
-    if(sectors & 15)
+    else if(sectors & 15)
     {
         heads++;
         while(sectors % heads)
