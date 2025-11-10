@@ -5723,8 +5723,7 @@ bool CPU::writeMem16(uint32_t offset, uint16_t data, bool privileged)
     if(!getPhysicalAddress(offset, physAddr, true, privileged))
         return false;
 
-    sys.writeMem(physAddr, data & 0xFF);
-    sys.writeMem(physAddr + 1, data >> 8);
+    sys.writeMem16(physAddr, data);
     return true;
 }
 
@@ -5741,10 +5740,7 @@ bool CPU::writeMem32(uint32_t offset, uint32_t data, bool privileged)
     if(!getPhysicalAddress(offset, physAddr, true, privileged))
         return false;
 
-    sys.writeMem(physAddr + 0, data & 0xFF);
-    sys.writeMem(physAddr + 1, data >> 8);
-    sys.writeMem(physAddr + 2, data >> 16);
-    sys.writeMem(physAddr + 3, data >> 24);
+    sys.writeMem32(physAddr, data);
     return true;
 }
 

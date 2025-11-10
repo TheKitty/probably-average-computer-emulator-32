@@ -1464,10 +1464,6 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
 
     auto ptr = memMap[block];
 
-    // HACK: prevent setting coprocessor bit in equipment flags
-    if(addr == 0x410)
-        data &= ~2;
-
     if(ptr)
     {
         ptr[addr] = data;
@@ -1476,6 +1472,52 @@ void RAM_FUNC(System::writeMem)(uint32_t addr, uint8_t data)
 
     if(memWriteCb && addr >= memAccessCbBase && addr < memAccessCbEnd)
         memWriteCb(addr, data, memAccessUserData);
+}
+
+void RAM_FUNC(System::writeMem16)(uint32_t addr, uint16_t data)
+{
+    if(addr >= maxAddress)
+        return;
+
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
+
+    auto block = addr / blockSize;
+
+    auto ptr = memMap[block];
+
+    // HACK: prevent setting coprocessor bit in equipment flags
+    if(addr == 0x410)
+        data &= ~2;
+
+    if(ptr)
+    {
+        *reinterpret_cast<uint16_t *>(ptr + addr) = data;
+        return;
+    }
+
+    return writeMem16WithCallback(addr, data);
+}
+
+void RAM_FUNC(System::writeMem32)(uint32_t addr, uint32_t data)
+{
+    if(addr >= maxAddress)
+        return;
+
+    if((addr & (1 << 20)) && !chipset.getA20())
+        addr &= ~(1 << 20);
+
+    auto block = addr / blockSize;
+
+    auto ptr = memMap[block];
+
+    if(ptr)
+    {
+        *reinterpret_cast<uint32_t *>(ptr + addr) = data;
+        return;
+    }
+
+    return writeMem32WithCallback(addr, data);
 }
 
 // these are split to a separate function to optimise the significantly more common case of accessing regular memory
@@ -1501,6 +1543,28 @@ uint32_t RAM_FUNC(System::readMem32WithCallback)(uint32_t addr)
                memReadCb(addr + 3, memAccessUserData) << 24;
     }
     return 0xFFFFFFFF;
+}
+
+[[gnu::noinline]]
+void RAM_FUNC(System::writeMem16WithCallback)(uint32_t addr, uint16_t data)
+{
+    if(memWriteCb && addr >= memAccessCbBase && addr < memAccessCbEnd)
+    {
+        memWriteCb(addr + 0, data      , memAccessUserData);
+        memWriteCb(addr + 1, data >>  8, memAccessUserData);
+    }
+}
+
+[[gnu::noinline]]
+void RAM_FUNC(System::writeMem32WithCallback)(uint32_t addr, uint32_t data)
+{
+    if(memWriteCb && addr >= memAccessCbBase && addr < memAccessCbEnd)
+    {
+        memWriteCb(addr + 0, data      , memAccessUserData);
+        memWriteCb(addr + 1, data >>  8, memAccessUserData);
+        memWriteCb(addr + 2, data >> 16, memAccessUserData);
+        memWriteCb(addr + 3, data >> 24, memAccessUserData);
+    }
 }
 
 const uint8_t *System::mapAddress(uint32_t addr) const
