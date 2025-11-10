@@ -158,6 +158,8 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
             {
                 for(int x = 0; x < charWidth; x++)
                     outputPixel(fgCol);
+
+                continue;
             }
             // skip blank chars (also do blink here)
             else if(!fontLine || (blinkEn && attr & 0x80 && !(frame & 16)))
