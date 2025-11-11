@@ -216,7 +216,11 @@ int main()
 {
     set_sys_clock_khz(250000, false);
 
-    tusb_init();
+    tusb_rhport_init_t hostInit = {
+        .role = TUSB_ROLE_HOST,
+        .speed = TUSB_SPEED_AUTO
+    };
+    tusb_init(BOARD_TUH_RHPORT, &hostInit);
 
     stdio_init_all();
 
