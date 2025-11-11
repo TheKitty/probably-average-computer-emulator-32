@@ -74,7 +74,7 @@ jobs:
 
     # need to install Pico-PIO-USB for fruit jam
     - name: Get TinyUSB deps
-      working-directory: ${{runner.workspace}}/pico-sdk
+      working-directory: pico-sdk
       if: matrix.is-pico
       run: libs/tinyusb/tools/get_deps.py rp2040
 
