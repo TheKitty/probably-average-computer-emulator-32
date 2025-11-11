@@ -76,7 +76,10 @@ jobs:
     - name: Get TinyUSB deps
       working-directory: pico-sdk
       if: matrix.is-pico
-      run: lib/tinyusb/tools/get_deps.py rp2040
+      run: |
+        lib/tinyusb/tools/get_deps.py rp2040
+        cd lib/tinyusb/hw/mcu/raspberry_pi/Pico-PIO-USB
+        git fetch && git checkout d15f0c62ac22348a8708e1626525fdba9466e1ee
 
     # Linux dependencies
     - name: Install Linux deps
