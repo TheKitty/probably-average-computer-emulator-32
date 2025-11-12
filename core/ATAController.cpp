@@ -68,6 +68,8 @@ ATAController::ATAController(System &sys) : sys(sys)
     sys.addIODevice(0x3F8, 0x1F0, 0, this);
     // 3F6-3F7 (primary, 376-377 for secondary)
     sys.addIODevice(0x3FE, 0x3F6, 0, this);
+
+    sectorsPerTrack[0] = sectorsPerTrack[1] = 0;
 }
 
 void ATAController::setIOInterface(ATADiskIO *io)
@@ -510,6 +512,12 @@ void ATAController::ioComplete(int device, bool success, bool write)
     }
 }
 
+void ATAController::overrideSectorsPerTrack(int device, unsigned sectors)
+{
+    if(device < 2)
+        sectorsPerTrack[device] = sectors;
+}
+
 void ATAController::calculateCHS(int device)
 {
     uint32_t sectors = io->getNumSectors(device);
@@ -517,7 +525,7 @@ void ATAController::calculateCHS(int device)
     // fake some CHS sizes
     // this may try too hard
     unsigned heads = 16;
-    unsigned sectorsPerTrack = 4;
+    unsigned sectorsPerTrack = this->sectorsPerTrack[device] ? this->sectorsPerTrack[device] : 4;
 
     // jump straight to 63 sectors per track if that works
     if(sectors % (63 * 16) == 0)

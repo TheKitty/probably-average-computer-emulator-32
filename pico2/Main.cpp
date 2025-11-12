@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <forward_list>
 #include <string_view>
 
@@ -218,6 +219,12 @@ static bool readConfigFile()
             // using value as a c string is fine as it's the end of the original string
             ataPrimaryIO.openDisk(index, value.data());
             sys.getChipset().setFixedDiskPresent(index, ataPrimaryIO.getNumSectors(index) && !ataPrimaryIO.isATAPI(index));
+        }
+        else if(key.compare(0, 11, "ata-sectors") == 0 && key.length() == 12 && key[11] >= '0' && key[11] <= '9')
+        {
+            int index = key[11] - '0';
+            int sectors = atoi(value.data());
+            ataPrimary.overrideSectorsPerTrack(index, sectors);
         }
         else if(key.compare(0, 6, "floppy") == 0 && key.length() == 7 && key[6] >= '0' && key[6] <= '9')
         {

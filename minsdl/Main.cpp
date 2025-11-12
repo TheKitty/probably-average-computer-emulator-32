@@ -458,6 +458,12 @@ int main(int argc, char *argv[])
             if(n >= 0 && n < FileATAIO::maxDrives)
                 ataPaths[n] = argv[++i];
         }
+        else if(arg.compare(0, 13, "--ata-sectors") == 0 && arg.length() == 14 && i + 1 < argc)
+        {
+            int n = arg[13] - '0';
+            if(n >= 0 && n < FileATAIO::maxDrives)
+                ataPrimary.overrideSectorsPerTrack(n, std::stoi(argv[++i]));
+        }
         else
             break;
     }

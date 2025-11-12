@@ -41,6 +41,8 @@ public:
 
     void ioComplete(int device, bool success, bool write);
 
+    void overrideSectorsPerTrack(int device, unsigned sectors);
+
 private:
     void calculateCHS(int device);
 
