@@ -399,7 +399,9 @@ void Chipset::write(uint16_t addr, uint8_t data)
                 pit.latched &= ~(1 << channel);
                 pit.highByte &= ~(1 << channel);
 
+#ifndef NDEBUG
                 printf("PIT ch%i access %i mode %i\n", channel, access, mode);
+#endif
 
                 calculateNextPITUpdate();
                 sys.calculateNextInterruptCycle(sys.getCycleCount());
