@@ -17,11 +17,23 @@ VGACard::VGACard(System &sys) : sys(sys)
 
 void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 {
+    // if clock rate is halved, double the pixels
+    // but make sure we don't do it too early
+    const bool isHalfClock = seqClockMode & (1 << 3) && crtcRegs[1] < 40;
+
 #ifdef VGA_RGB565
-    auto outputPixel = [&output](uint16_t col)
+    auto outputPixel = [&output, isHalfClock](uint16_t col)
     {
-        *reinterpret_cast<uint16_t *>(output) = col;
-        output += 2;
+        if(isHalfClock)
+        {
+            *reinterpret_cast<uint32_t *>(output) = col | col << 16;
+            output += 4;
+        }
+        else
+        {
+            *reinterpret_cast<uint16_t *>(output) = col;
+            output += 2;
+        }
     };
 
     auto outputPixel2 = [&output](uint16_t col)
@@ -42,7 +54,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
     };
 #else
     // RGB888
-    auto outputPixel = [&output](uint8_t *col)
+    auto outputPixel = [&output, isHalfClock](uint8_t *col)
     {
         uint8_t r = col[0];
         uint8_t g = col[1];
@@ -51,6 +63,14 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
         *output++ = g << 2 | g >> 4;
         *output++ = b << 2 | b >> 4;
         output++;
+
+        if(isHalfClock)
+        {
+            *output++ = r << 2 | r >> 4;
+            *output++ = g << 2 | g >> 4;
+            *output++ = b << 2 | b >> 4;
+            output++;
+        }
     };
 
     auto outputPixel2 = [&output](uint8_t *col)
@@ -204,6 +224,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
     }
     else if(gfxMode & (1 << 4)) // interleaved
     {
+        int hDispChars = crtcRegs[1] + 1;
         int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
         int offset = crtcRegs[0x13];
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
@@ -216,7 +237,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
         if((crtcRegs[0x17] & 1) == 0 && (line & 1))
             ptr0 += 0x2000;
     
-        auto endPtr0 = ptr0 + outputW / 4;
+        auto endPtr0 = ptr0 + hDispChars * 2;
 
         // first 4 pixels from plane 0 + 2
         // next four from plane 1 + 3
@@ -595,6 +616,10 @@ void VGACard::updateOutputResolution()
 
     outputW = charWidth * hDispChars;
     outputH = vDisp;
+
+    // double width (or un-half) if DCR set
+    if(seqClockMode & (1 << 3))
+        outputW *= 2;
 
     printf("VGA res %ix%i\n", outputW, outputH);
 }
