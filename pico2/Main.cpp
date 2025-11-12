@@ -49,8 +49,6 @@ static VGACard vga(sys);
 static FileATAIO ataPrimaryIO;
 static FileFloppyIO floppyIO;
 
-static uint32_t emu_time = 0, real_time = 0, sync_time = 0;
-
 static void speakerCallback(int8_t sample)
 {
     int16_t sample16 = sample << 4;
@@ -80,34 +78,8 @@ void __not_in_flash_func(display_draw_line)(void *, int line, uint16_t *buf)
 
 static void runEmulator(absolute_time_t &time)
 {
-    auto now = get_absolute_time();
-    auto elapsed = absolute_time_diff_us(time, now) / 1000;
-
-    if(elapsed)
-    {
-        if(elapsed > 10)
-            elapsed = 10;
-
-        auto start = get_absolute_time();
-
-        sys.getCPU().run(elapsed);
-        time = delayed_by_ms(time, elapsed);
-
-        sys.getChipset().updateForDisplay();
-
-        // get "real" time taken
-        auto update_time = absolute_time_diff_us(start, get_absolute_time());
-
-        emu_time += elapsed * 1000;
-        real_time += update_time;
-
-        // every 10s calculate speed
-        if(emu_time >= 10000000) {
-            int speed = uint64_t(emu_time) * 1000 / real_time;
-            printf("speed %i.%i%% (%ims in %ims, sync %ims)\n", speed / 10, speed % 10, emu_time / 1000, real_time / 1000, sync_time / 1000);
-            emu_time = real_time = sync_time = 0;
-        }
-    }
+    sys.getCPU().run(10);
+    sys.getChipset().updateForDisplay();
 }
 
 static void core1FIFOHandler()
