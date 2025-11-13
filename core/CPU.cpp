@@ -4799,7 +4799,10 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
             if(operandSize32)
             {
                 bit = reg(rm.reg32());
+                // add bit offset
                 rm.offset += (bit >> 5) * 4;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
 
                 uint32_t data;
                 if(!readRM32(rm, data))
@@ -4811,6 +4814,8 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
             {
                 bit = static_cast<int16_t>(reg(rm.reg16()));
                 rm.offset += (bit >> 4) * 2;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
 
                 uint16_t data;
                 if(!readRM16(rm, data))
@@ -4926,6 +4931,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = reg(rm.reg32());
 
                 rm.offset += (bit >> 5) * 4;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 31;
 
                 uint32_t data;
@@ -4941,6 +4949,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = static_cast<int16_t>(reg(rm.reg16()));
 
                 rm.offset += (bit >> 4) * 2;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 15;
 
                 uint16_t data;
@@ -5076,6 +5087,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = reg(rm.reg32());
 
                 rm.offset += (bit >> 5) * 4;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 31;
 
                 uint32_t data;
@@ -5091,6 +5105,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = static_cast<int16_t>(reg(rm.reg16()));
 
                 rm.offset += (bit >> 4) * 2;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 15;
 
                 uint16_t data;
@@ -5252,6 +5269,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = reg(rm.reg32());
 
                 rm.offset += (bit >> 5) * 4;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 31;
 
                 uint32_t data;
@@ -5267,6 +5287,9 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
                 bit = static_cast<int16_t>(reg(rm.reg16()));
 
                 rm.offset += (bit >> 4) * 2;
+                if(!addressSize32)
+                    rm.offset &= 0xFFFF;
+
                 bit &= 15;
 
                 uint16_t data;
