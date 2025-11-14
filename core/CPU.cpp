@@ -5689,6 +5689,12 @@ bool CPU::readMemIP8(uint32_t offset, uint8_t &data)
         ipPtrBase = offset >> 12;
     }
 
+    if(offset > ipLimit)
+    {
+        fault(Fault::GP, 0);
+        return false;
+    }
+
     data = ipPtr[offset];
     return true;
 }
@@ -5727,6 +5733,12 @@ bool CPU::readMemIP16(uint32_t offset, uint16_t &data)
 
         ipPtr = sys.mapAddress(physAddr) - offset;
         ipPtrBase = offset >> 12;
+    }
+
+    if(offset + 1 > ipLimit)
+    {
+        fault(Fault::GP, 0);
+        return false;
     }
 
     data = *reinterpret_cast<const uint16_t *>(ipPtr + offset);
@@ -5770,6 +5782,12 @@ bool CPU::readMemIP32(uint32_t offset, uint32_t &data)
 
         ipPtr = sys.mapAddress(physAddr) - offset;
         ipPtrBase = offset >> 12;
+    }
+
+    if(offset + 3 > ipLimit)
+    {
+        fault(Fault::GP, 0);
+        return false;
     }
 
     data = *reinterpret_cast<const uint32_t *>(ipPtr + offset);
@@ -6287,16 +6305,23 @@ bool CPU::setSegmentReg(Reg16 r, uint16_t value, bool checkFaults)
         if(checkFaults && !checkSegmentSelector(r, value, cpl))
             return false;
         
-        getCachedSegmentDescriptor(r) = loadSegmentDescriptor(value);
+        auto &desc = getCachedSegmentDescriptor(r);
+        desc = loadSegmentDescriptor(value);
         reg(r) = value;
 
         if(r == Reg16::CS)
         {
             cpl = value & 3;
-            codeSizeBit = getCachedSegmentDescriptor(Reg16::CS).flags & SD_Size;
+            codeSizeBit = desc.flags & SD_Size;
+
+            // clamp to 32bit
+            if(desc.base + desc.limit < desc.base)
+                ipLimit = 0xFFFFFFFF;
+            else
+                ipLimit = desc.base + desc.limit;
         }
         else if(r == Reg16::SS)
-            stackAddrSize32 = getCachedSegmentDescriptor(Reg16::SS).flags & SD_Size;
+            stackAddrSize32 = desc.flags & SD_Size;
     }
     else
     {
@@ -6309,6 +6334,7 @@ bool CPU::setSegmentReg(Reg16 r, uint16_t value, bool checkFaults)
             desc.flags &= ~SD_PrivilegeLevel; // clear privilege level
             desc.limit = 0xFFFF;
             codeSizeBit = false;
+            ipLimit = desc.base + desc.limit;
         }
         else if(r == Reg16::SS)
             stackAddrSize32 = false;

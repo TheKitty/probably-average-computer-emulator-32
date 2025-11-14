@@ -323,6 +323,7 @@ private:
     uint32_t faultIP;
 
     uint32_t ipPtrBase = 0; // the top 20 bits of the linear IP that was used to map ipPtr
+    uint32_t ipLimit; // CS base+limit
     const uint8_t *ipPtr = nullptr;
 
     // RAM
