@@ -1,3 +1,5 @@
+enable_language(ASM)
+
 add_executable(PACEPico2
     Main.cpp
 
