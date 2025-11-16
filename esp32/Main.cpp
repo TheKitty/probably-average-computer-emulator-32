@@ -1,3 +1,5 @@
+#include <string_view>
+
 #include "driver/gptimer.h"
 
 #include "freertos/FreeRTOS.h"
@@ -5,6 +7,7 @@
 #include "freertos/idf_additions.h"
 
 #include "BIOS.h"
+#include "DiskIO.h"
 #include "Display.h"
 #include "Storage.h"
 
@@ -24,13 +27,88 @@ static FloppyController fdc(sys);
 static QEMUConfig qemuCfg(sys);
 static VGACard vga(sys);
 
-// static FileATAIO ataPrimaryIO;
-// static FileFloppyIO floppyIO;
+static FileATAIO ataPrimaryIO;
+static FileFloppyIO floppyIO;
 
 void display_draw_line(void *, int line, uint16_t *buf)
 {
     // may need to be more careful here as this is coming from an interrupt...
     vga.drawScanline(line, reinterpret_cast<uint8_t *>(buf));
+}
+
+static bool readConfigFile()
+{
+    char buf[100];
+
+    FIL *configFile = new FIL;
+
+    FRESULT res = f_open(configFile, "config.txt", FA_READ | FA_OPEN_EXISTING);
+
+    if(res != FR_OK)
+    {
+        printf("Failed to open config file! %i\n", res);
+        delete configFile;
+        return false;
+    }
+
+    size_t off = 0;
+    UINT read;
+
+    while(!f_eof(configFile))
+    {
+        // get line
+        for(off = 0; off < sizeof(buf) - 1; off++)
+        {
+            if(f_read(configFile, buf + off, 1, &read) != FR_OK || !read)
+                break;
+
+            if(buf[off] == '\n')
+                break;
+        }
+        buf[off] = 0;
+
+        // parse key=value
+        std::string_view line(buf);
+
+        auto equalsPos = line.find_first_of('=');
+
+        if(equalsPos == std::string_view::npos)
+        {
+            printf("invalid config line %s\n", buf);
+            continue;
+        }
+
+        auto key = line.substr(0, equalsPos);
+        auto value = line.substr(equalsPos + 1);
+
+        // ata drive (yes, 0-9 is a little optimistic)
+        if(key.compare(0, 3, "ata") == 0 && key.length() == 4 && key[3] >= '0' && key[3] <= '9')
+        {
+            int index = key[3] - '0';
+            // TODO: secondary controller?
+            // using value as a c string is fine as it's the end of the original string
+            ataPrimaryIO.openDisk(index, value.data());
+            sys.getChipset().setFixedDiskPresent(index, ataPrimaryIO.getNumSectors(index) && !ataPrimaryIO.isATAPI(index));
+        }
+        else if(key.compare(0, 11, "ata-sectors") == 0 && key.length() == 12 && key[11] >= '0' && key[11] <= '9')
+        {
+            int index = key[11] - '0';
+            int sectors = atoi(value.data());
+            ataPrimary.overrideSectorsPerTrack(index, sectors);
+        }
+        else if(key.compare(0, 6, "floppy") == 0 && key.length() == 7 && key[6] >= '0' && key[6] <= '9')
+        {
+            int index = key[6] - '0';
+            floppyIO.openDisk(index, value.data());
+        }
+        else
+            printf("unhandled config line %s\n", buf);
+    }
+
+    f_close(configFile);
+    delete configFile;
+
+    return true;
 }
 
 static void runEmulator(void * arg)
@@ -75,6 +153,17 @@ extern "C" void app_main()
     memcpy(ram + biosBase, bios, biosBase);
 
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
+
+    // disk setup
+    ataPrimary.setIOInterface(&ataPrimaryIO);
+    fdc.setIOInterface(&floppyIO);
+
+    if(!readConfigFile())
+    {
+        // load a default image
+        ataPrimaryIO.openDisk(0, "hd0.img");
+        sys.getChipset().setFixedDiskPresent(0, ataPrimaryIO.getNumSectors(0) && !ataPrimaryIO.isATAPI(0));
+    }
 
     sys.reset();
 
