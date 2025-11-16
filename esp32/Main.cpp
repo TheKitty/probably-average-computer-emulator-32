@@ -2,6 +2,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/idf_additions.h"
 
 #include "BIOS.h"
 
@@ -24,10 +25,14 @@ static VGACard vga(sys);
 // static FileATAIO ataPrimaryIO;
 // static FileFloppyIO floppyIO;
 
-static void runEmulator()
+static void runEmulator(void * arg)
 {
-    sys.getCPU().run(10);
-    sys.getChipset().updateForDisplay();
+    while(true)
+    {
+        sys.getCPU().run(10);
+        sys.getChipset().updateForDisplay();
+        vTaskDelay(1); // hmm
+    }
 }
 
 extern "C" void app_main()
@@ -63,9 +68,10 @@ extern "C" void app_main()
 
     sys.reset();
 
+    xTaskCreatePinnedToCore(runEmulator, "emu_cpu", 4096, xTaskGetCurrentTaskHandle(), 1, nullptr, 1);
+
     while(true)
     {
-        runEmulator();
         vTaskDelay(1); // let idle task run
     }
 }
