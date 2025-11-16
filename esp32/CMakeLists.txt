@@ -2,6 +2,7 @@
 include(bios.cmake)
 
 add_executable(PACE_ESP32
+    DiskIO.cpp
     Display.cpp
     Main.cpp
     Storage.cpp
