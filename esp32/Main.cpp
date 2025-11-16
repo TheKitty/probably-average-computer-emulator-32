@@ -40,6 +40,7 @@ extern "C" void app_main()
         .intr_priority = 0,
         .flags = {}
     };
+    // on ESP32-P4 this gets a frequency of 3.636363MHz instead of 3.579545 (~14.54 instead of ~14.31)
 
     ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &sysTimer));
     ESP_ERROR_CHECK(gptimer_enable(sysTimer));
