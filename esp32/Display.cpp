@@ -18,12 +18,15 @@ static esp_lcd_panel_handle_t panel_handle = nullptr;
 
 static uint16_t *line_buffer; // rgb565
 
-static uint16_t temp_scale_buffer[720 * 2];
+static uint16_t temp_scale_buffer[720 * 5];
 
 static unsigned cur_copy_line = 0;
+static unsigned copy_out_step = 1;
 
 static bool backlight_enabled = false;
 static bool render_needed = true;
+
+static int new_mode_h = 480;
 
 #if SOC_PPA_SUPPORTED
 static ppa_client_handle_t ppa_client = nullptr;
@@ -43,7 +46,7 @@ static bool on_color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
 {
     auto task = (TaskHandle_t)user_ctx;
 
-    if(cur_copy_line == DISPLAY_HEIGHT)
+    if(cur_copy_line * copy_out_step == DISPLAY_HEIGHT)
     {
 #ifdef LCD_BACKLIGHT_PIN
         // enable backlight
@@ -65,7 +68,7 @@ static bool on_color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
 
 #if SOC_PPA_SUPPORTED
 static bool on_ppa_trans_done(ppa_client_handle_t ppa_client, ppa_event_data_t *event_data, void *user_data) {
-  esp_lcd_panel_draw_bitmap(panel_handle, 0, cur_copy_line, DISPLAY_WIDTH, cur_copy_line + 1, line_buffer);
+  esp_lcd_panel_draw_bitmap(panel_handle, 0, cur_copy_line * copy_out_step, DISPLAY_WIDTH, (cur_copy_line + 1) * copy_out_step, line_buffer);
   cur_copy_line++;
   return false;
 }
@@ -79,46 +82,76 @@ static void display_task(void *arg)
 
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &io_callbacks, xTaskGetCurrentTaskHandle()));
 
+    int in_lines = 2;
+
+#if SOC_PPA_SUPPORTED
+    int cur_mode_w = 640; // TODO: remove text mode hack and use width from vga emu?
+    int cur_mode_h = 480;
+
+    int out_lines = 1;
+#endif
+
     while(true)
     {
         if(render_needed)
         {
             cur_copy_line = 0;
             render_needed = false;
+
+#if SOC_PPA_SUPPORTED
+            // update scale
+            if(new_mode_h != cur_mode_h)
+            {
+                cur_mode_h = new_mode_h;
+
+                if(new_mode_h == 480)
+                {
+                    // 480:240 == 2:1 
+                    in_lines = 2;
+                    out_lines = 1;
+                }
+                else if(new_mode_h == 400)
+                {
+                    // 400:240 == 5:3
+                    in_lines = 5;
+                    out_lines = 3;
+                }
+
+                copy_out_step = out_lines;
+            }
+#endif
         }
 
         if(cur_copy_line < DISPLAY_HEIGHT)
         {
-            // 2:1 scale
-            display_draw_line(nullptr, cur_copy_line * 2, temp_scale_buffer);
-            display_draw_line(nullptr, cur_copy_line * 2 + 1, temp_scale_buffer + 720);
+            for(int i = 0; i < in_lines; i++)
+                display_draw_line(nullptr, cur_copy_line * in_lines + i, temp_scale_buffer + i * 720);
 
 #if SOC_PPA_SUPPORTED
             // use PPA to scale
             ppa_srm_oper_config_t copy_config = {};
 
-            int in_lines = 2;
-            int out_lines = 1;
-
             copy_config.in.buffer = temp_scale_buffer;
             copy_config.in.pic_w = 720;
-            copy_config.in.block_w = 640; // TODO: remove text mode hack and use width from vga emu
+            copy_config.in.block_w = cur_mode_w;
             copy_config.in.pic_h = copy_config.in.block_h = in_lines;
             copy_config.in.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
 
             copy_config.out.buffer = line_buffer;
-            copy_config.out.buffer_size = DISPLAY_WIDTH * 2;
+            copy_config.out.buffer_size = DISPLAY_WIDTH * 2 * out_lines;
             copy_config.out.pic_w = DISPLAY_WIDTH;
             copy_config.out.pic_h = out_lines;
             copy_config.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
 
             copy_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
-            copy_config.scale_x = float(DISPLAY_WIDTH) / 640;
-            copy_config.scale_y = float(out_lines) / in_lines;
+            // scale is only accurate to 1/16th
+            copy_config.scale_x = float(DISPLAY_WIDTH) / cur_mode_w;
+            copy_config.scale_y = float(out_lines) / in_lines + (1.0f / 32.0f);
             copy_config.mode = PPA_TRANS_MODE_NON_BLOCKING;
 
             ppa_do_scale_rotate_mirror(ppa_client, &copy_config);
 #else
+            // fixed 2:1 scale
             auto in0 = temp_scale_buffer;
             auto in1 = temp_scale_buffer + 720;
             auto out = line_buffer;
@@ -181,7 +214,7 @@ void init_display()
     bus_config.data_gpio_nums[7] = LCD_DATA7_PIN;
 
     bus_config.bus_width = 8;
-    bus_config.max_transfer_bytes = DISPLAY_WIDTH * sizeof(uint16_t);
+    bus_config.max_transfer_bytes = DISPLAY_WIDTH * 4 * sizeof(uint16_t);
     bus_config.dma_burst_size = 64;
 
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
@@ -273,7 +306,7 @@ void init_display()
 
     // alloc buffers
     // TODO: larger?
-    line_buffer = (uint16_t *)alloc_display_buffer(DISPLAY_WIDTH * 2);
+    line_buffer = (uint16_t *)alloc_display_buffer(DISPLAY_WIDTH * 4 * 2);
 
   // pixel-processing accelerator
 #if SOC_PPA_SUPPORTED
@@ -293,5 +326,5 @@ void init_display()
 
 void set_display_size(int w, int h)
 {
-
+    new_mode_h = h;
 }
