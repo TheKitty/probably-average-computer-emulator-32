@@ -130,8 +130,11 @@ static void runEmulator(void * arg)
 {
     while(true)
     {
-        sys.getCPU().run(10);
-        sys.getChipset().updateForDisplay();
+        for(int i = 0; i < 100; i++)
+        {
+            sys.getCPU().run(10);
+            sys.getChipset().updateForDisplay();
+        }
         vTaskDelay(1); // hmm
     }
 }
