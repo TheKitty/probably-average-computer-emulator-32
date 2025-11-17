@@ -241,3 +241,8 @@ void init_display()
 
     xTaskCreate(display_task, "display", 2048, nullptr, 5, nullptr);
 }
+
+void set_display_size(int w, int h)
+{
+    
+}

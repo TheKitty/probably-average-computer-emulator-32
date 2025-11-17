@@ -31,6 +31,7 @@ static VGACard vga(sys);
 static FileATAIO ataPrimaryIO;
 static FileFloppyIO floppyIO;
 
+// called from "drivers"
 void display_draw_line(void *, int line, uint16_t *buf)
 {
     // may need to be more careful here as this is coming from an interrupt...
@@ -126,6 +127,11 @@ static bool readConfigFile()
     return true;
 }
 
+static void vgaResolutionCallback(int w, int h)
+{
+    set_display_size(w, h);
+}
+
 static void runEmulator(void * arg)
 {
     while(true)
@@ -172,6 +178,8 @@ extern "C" void app_main()
     memcpy(ram + biosBase, bios, biosBase);
 
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
+
+    vga.setResolutionChangeCallback(vgaResolutionCallback);
 
     // disk setup
     ataPrimary.setIOInterface(&ataPrimaryIO);
