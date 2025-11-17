@@ -10,6 +10,7 @@
 #include "DiskIO.h"
 #include "Display.h"
 #include "Storage.h"
+#include "USB.h"
 
 #include "ATAController.h"
 #include "FloppyController.h"
@@ -34,6 +35,20 @@ void display_draw_line(void *, int line, uint16_t *buf)
 {
     // may need to be more careful here as this is coming from an interrupt...
     vga.drawScanline(line, reinterpret_cast<uint8_t *>(buf));
+}
+
+void update_key_state(ATScancode code, bool state)
+{
+    sys.getChipset().sendKey(code, state);
+}
+
+void update_mouse_state(int8_t x, int8_t y, bool left, bool right)
+{
+    auto &chipset = sys.getChipset();
+    chipset.addMouseMotion(x, y);
+    chipset.setMouseButton(0, left);
+    chipset.setMouseButton(1, right);
+    chipset.syncMouse();
 }
 
 static bool readConfigFile()
@@ -137,9 +152,10 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(gptimer_enable(sysTimer));
     ESP_ERROR_CHECK(gptimer_start(sysTimer));
 
-    // display/fs init
+    // hw init
     init_display();
     init_storage();
+    init_usb();
 
     // emulator init
     auto ramSize = 8 * 1024 * 1024; // can go up to 16 (core limit)
