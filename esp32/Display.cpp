@@ -25,32 +25,6 @@ static unsigned cur_copy_line = 0;
 static bool backlight_enabled = false;
 static bool render_needed = true;
 
-static inline void scale_line(uint16_t *out, int line, unsigned w)
-{
-    display_draw_line(nullptr, line * 2, temp_scale_buffer);
-    display_draw_line(nullptr, line * 2 + 1, temp_scale_buffer + 720);
-
-    auto in0 = temp_scale_buffer;
-    auto in1 = temp_scale_buffer + 720;
-
-    for(unsigned i = 0; i < w; i++)
-    {
-        uint32_t col0 = *in0++;
-        uint32_t col1 = *in0++;
-        uint32_t col2 = *in1++;
-        uint32_t col3 = *in1++;
-
-        col0 = (col0 | col0 << 16) & 0x07E0F81F;
-        col1 = (col1 | col1 << 16) & 0x07E0F81F;
-        col2 = (col2 | col2 << 16) & 0x07E0F81F;
-        col3 = (col3 | col3 << 16) & 0x07E0F81F;
-
-        uint32_t col = ((col0 + col1 + col2 + col3) >> 2) & 0x07E0F81F;
-
-        *out++ = col | col >> 16;
-    }
-}
-
 static void *alloc_display_buffer(size_t size)
 {
   // this depends on the bus...
@@ -65,7 +39,7 @@ static bool on_color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
 {
     auto task = (TaskHandle_t)user_ctx;
 
-    if(++cur_copy_line == DISPLAY_HEIGHT)
+    if(cur_copy_line == DISPLAY_HEIGHT)
     {
 #ifdef LCD_BACKLIGHT_PIN
         // enable backlight
@@ -97,16 +71,39 @@ static void display_task(void *arg)
     {
         if(render_needed)
         {
-            scale_line(line_buffer, 0, DISPLAY_WIDTH);
-            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, DISPLAY_WIDTH, 1, line_buffer);
             cur_copy_line = 0;
-
             render_needed = false;
         }
-        else if(cur_copy_line < DISPLAY_HEIGHT)
+
+        if(cur_copy_line < DISPLAY_HEIGHT)
         {
-            scale_line(line_buffer, cur_copy_line, DISPLAY_WIDTH);
+            // 2:1 scale
+            display_draw_line(nullptr, cur_copy_line * 2, temp_scale_buffer);
+            display_draw_line(nullptr, cur_copy_line * 2 + 1, temp_scale_buffer + 720);
+
+            auto in0 = temp_scale_buffer;
+            auto in1 = temp_scale_buffer + 720;
+            auto out = line_buffer;
+
+            for(unsigned i = 0; i < DISPLAY_WIDTH; i++)
+            {
+                uint32_t col0 = *in0++;
+                uint32_t col1 = *in0++;
+                uint32_t col2 = *in1++;
+                uint32_t col3 = *in1++;
+
+                col0 = (col0 | col0 << 16) & 0x07E0F81F;
+                col1 = (col1 | col1 << 16) & 0x07E0F81F;
+                col2 = (col2 | col2 << 16) & 0x07E0F81F;
+                col3 = (col3 | col3 << 16) & 0x07E0F81F;
+
+                uint32_t col = ((col0 + col1 + col2 + col3) >> 2) & 0x07E0F81F;
+
+                *out++ = col | col >> 16;
+            }
+
             esp_lcd_panel_draw_bitmap(panel_handle, 0, cur_copy_line, DISPLAY_WIDTH, cur_copy_line + 1, line_buffer);
+            cur_copy_line++;
         }
 
         // wait for next completion
@@ -244,5 +241,5 @@ void init_display()
 
 void set_display_size(int w, int h)
 {
-    
+
 }
