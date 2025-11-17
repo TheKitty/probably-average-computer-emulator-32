@@ -341,6 +341,11 @@ std::tuple<int, int> VGACard::getOutputResolution()
     return std::make_tuple(outputW, outputH);
 }
 
+void VGACard::setResolutionChangeCallback(ResolutionChangeCallback cb)
+{
+    resChangeCb = cb;
+}
+
 uint8_t VGACard::read(uint16_t addr)
 {
     switch(addr)
@@ -627,6 +632,9 @@ void VGACard::updateOutputResolution()
         outputW *= 2;
 
     printf("VGA res %ix%i\n", outputW, outputH);
+
+    if(resChangeCb)
+        resChangeCb(outputW, outputH);
 }
 
 void VGACard::updatePalette16(int index)

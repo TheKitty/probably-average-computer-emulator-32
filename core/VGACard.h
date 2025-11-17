@@ -3,11 +3,14 @@
 class VGACard : public IODevice
 {
 public:
+    using ResolutionChangeCallback = void(*)(int w, int h);
+
     VGACard(System &sys);
 
     void drawScanline(int line, uint8_t *output);
 
     std::tuple<int, int> getOutputResolution();
+    void setResolutionChangeCallback(ResolutionChangeCallback cb);
 
     uint8_t read(uint16_t addr) override;
     uint16_t read16(uint16_t addr) override {return read(addr) | read(addr + 1) << 8;}
@@ -83,6 +86,8 @@ private:
     uint8_t latch[4];
 
     int outputW = 0, outputH = 0;
+    ResolutionChangeCallback resChangeCb = nullptr;
+
     int lastOutputLine = 0;
     unsigned frame = 0;
     bool inDraw = false;
