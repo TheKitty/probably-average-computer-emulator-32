@@ -22,7 +22,7 @@ uint32_t FileFloppyIO::getLBA(int unit, uint8_t cylinder, uint8_t head, uint8_t 
 
 bool FileFloppyIO::read(FloppyController *controller, int unit, uint8_t *buf, uint32_t lba)
 {
-    if(unit >= maxDrives)
+    if(unit >= maxDrives || !sectorsPerTrack[unit])
         return false;
 
     if(curAccessController)
@@ -43,7 +43,7 @@ bool FileFloppyIO::read(FloppyController *controller, int unit, uint8_t *buf, ui
 
 bool FileFloppyIO::write(FloppyController *controller, int unit, const uint8_t *buf, uint32_t lba)
 {
-    if(unit >= maxDrives)
+    if(unit >= maxDrives || !sectorsPerTrack[unit])
         return false;
 
     if(curAccessController)
