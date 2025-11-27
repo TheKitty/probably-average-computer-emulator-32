@@ -174,7 +174,7 @@ void FileATAIO::openDisk(int unit, const char *path)
         return;
 
     // get size
-    int sectorSize = isCD[unit] ? 2048 : 512;
+    unsigned sectorSize = isCD[unit] ? 2048 : 512;
 
     numSectors[unit] = f_size(&file[unit]) / sectorSize;
 
@@ -184,16 +184,18 @@ void FileATAIO::openDisk(int unit, const char *path)
 
 void FileATAIO::doCore0IO()
 {
-    f_lseek(&file[curAccessDevice], curAccessLBA * 512);
+    unsigned sectorSize = isCD[curAccessDevice] ? 2048 : 512;
+
+    f_lseek(&file[curAccessDevice], curAccessLBA * sectorSize);
 
     UINT accessed;
     FRESULT res;
     if(curAccessWrite)
-        res = f_write(&file[curAccessDevice], curAccessBuf, 512, &accessed);
+        res = f_write(&file[curAccessDevice], curAccessBuf, sectorSize, &accessed);
     else
-        res = f_read(&file[curAccessDevice], curAccessBuf, 512, &accessed);
+        res = f_read(&file[curAccessDevice], curAccessBuf, sectorSize, &accessed);
 
-    curAccessSuccess = res == FR_OK && accessed == 512;
+    curAccessSuccess = res == FR_OK && accessed == sectorSize;
 
     multicore_fifo_push_blocking(2);
 }
