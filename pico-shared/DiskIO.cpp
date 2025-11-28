@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <string_view>
 
 #include "pico/multicore.h"
 
@@ -167,11 +168,20 @@ void FileATAIO::openDisk(int unit, const char *path)
 
     auto res = f_open(&file[unit], path, FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
 
-    // TODO: check ext (also handle sector size in read)
     isCD[unit] = false;
 
     if(res != FR_OK)
         return;
+
+    // check extension and assume a CD if it's .iso
+    std::string_view pathStr(path);
+    auto dot = pathStr.find_last_of('.');
+
+    if(dot != std::string_view::npos)
+    {
+        auto ext = pathStr.substr(dot + 1);
+        isCD[unit] = ext == "iso";
+    }
 
     // get size
     unsigned sectorSize = isCD[unit] ? 2048 : 512;
