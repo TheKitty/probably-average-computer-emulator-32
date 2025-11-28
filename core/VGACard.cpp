@@ -202,6 +202,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
     else if(gfxMode & (1 << 6)) // 256 col
     {
         int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
+        int hDispChars = crtcRegs[1] + 1;
         int offset = crtcRegs[0x13];
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
 
@@ -209,7 +210,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 
         auto ptr0 = plane0 + startAddr + offset * (byteAccess ? 2 : 8) * (line / charHeight);
 
-        for(int i = 0; i < outputW / 8; i++)
+        for(int i = 0; i < hDispChars; i++)
         {
             uint8_t byte0 = (attribPlaneEnable & (1 << 0)) ? ptr0[0x00000] : 0;
             uint8_t byte1 = (attribPlaneEnable & (1 << 1)) ? ptr0[0x10000] : 0;
@@ -270,6 +271,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
     else // 16 col?
     {
         int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
+        int hDispChars = crtcRegs[1] + 1;
         int offset = crtcRegs[0x13];
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
 
@@ -282,7 +284,7 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
 
         uint8_t planeEnable = attribPlaneEnable;
 
-        auto endPtr0 = ptr0 + outputW / 8;
+        auto endPtr0 = ptr0 + hDispChars;
 
         for(; ptr0 != endPtr0; ptr0++)
         {
