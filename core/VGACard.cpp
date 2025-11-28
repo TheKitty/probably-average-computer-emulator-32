@@ -128,9 +128,8 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
         int offset = crtcRegs[0x13];
         int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
 
-#if defined(PICO_BUILD) || defined(ESP_BUILD)
-        charWidth = 8; // HACK: we don't support 720 wide modes yet
-#endif
+        if(textWidthHack)
+            charWidth = 8; // HACK: we don't support 720 wide modes yet
 
         auto charPtr = plane0 + startAddr * 2 + offset * 4 * (line / charHeight);
 
@@ -344,6 +343,11 @@ std::tuple<int, int> VGACard::getOutputResolution()
 void VGACard::setResolutionChangeCallback(ResolutionChangeCallback cb)
 {
     resChangeCb = cb;
+}
+
+void VGACard::setTextWidthHack(bool enabled)
+{
+    textWidthHack = enabled;
 }
 
 uint8_t VGACard::read(uint16_t addr)
@@ -626,6 +630,9 @@ void VGACard::updateOutputResolution()
 
     outputW = charWidth * hDispChars;
     outputH = vDisp;
+
+    if(textWidthHack)
+        charWidth = 8;
 
     // double width (or un-half) if DCR set
     if(seqClockMode & (1 << 3))

@@ -12,6 +12,8 @@ public:
     std::tuple<int, int> getOutputResolution();
     void setResolutionChangeCallback(ResolutionChangeCallback cb);
 
+    void setTextWidthHack(bool enabled);
+
     uint8_t read(uint16_t addr) override;
     uint16_t read16(uint16_t addr) override {return read(addr) | read(addr + 1) << 8;}
 
@@ -92,6 +94,7 @@ private:
     unsigned frame = 0;
     bool inDraw = false;
 
+    bool textWidthHack = false; // force text modes to have 8px chars (for display outputs limited to 640x480)
 #ifdef VGA_RGB565
     uint16_t rgb565pal16[16];
 #endif

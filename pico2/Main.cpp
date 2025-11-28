@@ -286,6 +286,8 @@ int main()
 
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
 
+    vga.setTextWidthHack(true); // none of the display drivers handle 720 wide modes yet
+
     // disk setup
     ataPrimary.setIOInterface(&ataPrimaryIO);
     fdc.setIOInterface(&floppyIO);

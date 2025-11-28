@@ -181,6 +181,7 @@ extern "C" void app_main()
     qemuCfg.setVGABIOS(reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start));
 
     vga.setResolutionChangeCallback(vgaResolutionCallback);
+    vga.setTextWidthHack(true); 
 
     // disk setup
     ataPrimary.setIOInterface(&ataPrimaryIO);
