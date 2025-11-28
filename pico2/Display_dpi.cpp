@@ -401,11 +401,11 @@ void init_display() {
     // setup timing buffers
     auto encode_timing = [](uint16_t instr, bool vsync, bool hsync, bool de, int delay) {
         // instr needs sideset 0, but that's just a zero
-        return instr                                   << 16
-                 | (delay - 3)                             <<  3 // two cycles from setup, one for the first loop iteration
-                 //| (de ? 1 : 0) << 2 // TODO
-                 | (vsync == DPI_MODE_V_SYNC_POLARITY ? 1 : 0) <<  1
-                 | (hsync == DPI_MODE_H_SYNC_POLARITY ? 1 : 0) <<  0;
+        return instr                                       << 16
+             | (delay - 3)                                 <<  3 // two cycles from setup, one for the first loop iteration
+             | (de ? 1 : 0)                                <<  2 
+             | (vsync == DPI_MODE_V_SYNC_POLARITY ? 1 : 0) <<  1
+             | (hsync == DPI_MODE_H_SYNC_POLARITY ? 1 : 0) <<  0;
     };
 
     //                                     instr                           vbl    hbl    de     delay
@@ -427,6 +427,10 @@ void init_display() {
     // setup timing program
     int num_sync_pins = 2; // h/v sync
     const int num_data_pins = 16; // assume 16-bit/565
+
+#ifdef DPI_USE_DE_PIN
+    num_sync_pins++;
+#endif
 
     int pio_offset = pio_add_program(pio, &dpi_timing_program);
 
