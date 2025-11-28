@@ -24,28 +24,47 @@
 #define SYNC_V1_H0 (TMDS_CTRL_10 | (TMDS_CTRL_00 << 10) | (TMDS_CTRL_00 << 20))
 #define SYNC_V1_H1 (TMDS_CTRL_11 | (TMDS_CTRL_00 << 10) | (TMDS_CTRL_00 << 20))
 
-// mode
-// active area needs to be consistent with (2x) DISPLAY_WIDTH/_HEIGHT
-//#define MODE_H_SYNC_POLARITY 0 // unused, assumed to be active-low
-#define MODE_H_FRONT_PORCH   16
-#define MODE_H_SYNC_WIDTH    96
-#define MODE_H_BACK_PORCH    48
-#define MODE_H_ACTIVE_PIXELS 640
+// mode (default to 640x480)
+#ifndef HSTX_HSTX_MODE_CLOCK
+#define HSTX_HSTX_MODE_CLOCK 252000000
+#endif
 
-//#define MODE_V_SYNC_POLARITY 0
-#define MODE_V_FRONT_PORCH   10
-#define MODE_V_SYNC_WIDTH    2
-#define MODE_V_BACK_PORCH    33
-#define MODE_V_ACTIVE_LINES  480
+//#define HSTX_MODE_H_SYNC_POLARITY 0 // unused, assumed to be active-low
+#ifndef HSTX_MODE_H_FRONT_PORCH
+#define HSTX_MODE_H_FRONT_PORCH   16
+#endif
+#ifndef HSTX_MODE_H_SYNC_WIDTH
+#define HSTX_MODE_H_SYNC_WIDTH    96
+#endif
+#ifndef HSTX_MODE_H_BACK_PORCH
+#define HSTX_MODE_H_BACK_PORCH    48
+#endif
+#ifndef HSTX_MODE_H_ACTIVE_PIXELS
+#define HSTX_MODE_H_ACTIVE_PIXELS 640
+#endif
+
+//#define HSTX_MODE_V_SYNC_POLARITY 0
+#ifndef HSTX_MODE_V_FRONT_PORCH
+#define HSTX_MODE_V_FRONT_PORCH   10
+#endif
+#ifndef HSTX_MODE_V_SYNC_WIDTH
+#define HSTX_MODE_V_SYNC_WIDTH    2
+#endif
+#ifndef HSTX_MODE_V_BACK_PORCH
+#define HSTX_MODE_V_BACK_PORCH    33
+#endif
+#ifndef HSTX_MODE_V_ACTIVE_LINES
+#define HSTX_MODE_V_ACTIVE_LINES  480
+#endif
 
 /*
-#define MODE_H_TOTAL_PIXELS ( \
-    MODE_H_FRONT_PORCH + MODE_H_SYNC_WIDTH + \
-    MODE_H_BACK_PORCH  + MODE_H_ACTIVE_PIXELS \
+#define HSTX_MODE_H_TOTAL_PIXELS ( \
+    HSTX_MODE_H_FRONT_PORCH + HSTX_MODE_H_SYNC_WIDTH + \
+    HSTX_MODE_H_BACK_PORCH  + HSTX_MODE_H_ACTIVE_PIXELS \
 )*/
-#define MODE_V_TOTAL_LINES  ( \
-    MODE_V_FRONT_PORCH + MODE_V_SYNC_WIDTH + \
-    MODE_V_BACK_PORCH  + MODE_V_ACTIVE_LINES \
+#define HSTX_MODE_V_TOTAL_LINES  ( \
+    HSTX_MODE_V_FRONT_PORCH + HSTX_MODE_V_SYNC_WIDTH + \
+    HSTX_MODE_V_BACK_PORCH  + HSTX_MODE_V_ACTIVE_LINES \
 )
 
 #define HSTX_CMD_RAW         (0x0u << 12)
@@ -60,33 +79,33 @@
 // pingponging and tripping up the IRQs.
 
 static uint32_t vblank_line_vsync_off[] = {
-    HSTX_CMD_RAW_REPEAT | MODE_H_FRONT_PORCH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_FRONT_PORCH,
     SYNC_V1_H1,
-    HSTX_CMD_RAW_REPEAT | MODE_H_SYNC_WIDTH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_SYNC_WIDTH,
     SYNC_V1_H0,
-    HSTX_CMD_RAW_REPEAT | (MODE_H_BACK_PORCH + MODE_H_ACTIVE_PIXELS),
+    HSTX_CMD_RAW_REPEAT | (HSTX_MODE_H_BACK_PORCH + HSTX_MODE_H_ACTIVE_PIXELS),
     SYNC_V1_H1,
     HSTX_CMD_NOP
 };
 
 static uint32_t vblank_line_vsync_on[] = {
-    HSTX_CMD_RAW_REPEAT | MODE_H_FRONT_PORCH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_FRONT_PORCH,
     SYNC_V0_H1,
-    HSTX_CMD_RAW_REPEAT | MODE_H_SYNC_WIDTH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_SYNC_WIDTH,
     SYNC_V0_H0,
-    HSTX_CMD_RAW_REPEAT | (MODE_H_BACK_PORCH + MODE_H_ACTIVE_PIXELS),
+    HSTX_CMD_RAW_REPEAT | (HSTX_MODE_H_BACK_PORCH + HSTX_MODE_H_ACTIVE_PIXELS),
     SYNC_V0_H1,
     HSTX_CMD_NOP,
 };
 
 static const uint32_t vactive_line[] = {
-    HSTX_CMD_RAW_REPEAT | MODE_H_FRONT_PORCH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_FRONT_PORCH,
     SYNC_V1_H1,
-    HSTX_CMD_RAW_REPEAT | MODE_H_SYNC_WIDTH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_SYNC_WIDTH,
     SYNC_V1_H0,
-    HSTX_CMD_RAW_REPEAT | MODE_H_BACK_PORCH,
+    HSTX_CMD_RAW_REPEAT | HSTX_MODE_H_BACK_PORCH,
     SYNC_V1_H1,
-    HSTX_CMD_TMDS       | MODE_H_ACTIVE_PIXELS
+    HSTX_CMD_TMDS       | HSTX_MODE_H_ACTIVE_PIXELS
 };
 
 // DMA logic
@@ -126,9 +145,9 @@ static void __scratch_x("") dma_irq_handler() {
     else
         cur_dma_ch++;
 
-    if (v_scanline >= MODE_V_FRONT_PORCH && v_scanline < (MODE_V_FRONT_PORCH + MODE_V_SYNC_WIDTH)) {
+    if (v_scanline >= HSTX_MODE_V_FRONT_PORCH && v_scanline < (HSTX_MODE_V_FRONT_PORCH + HSTX_MODE_V_SYNC_WIDTH)) {
         ch->read_addr = (uintptr_t)vblank_line_vsync_on;
-    } else if (v_scanline < MODE_V_FRONT_PORCH + MODE_V_SYNC_WIDTH + MODE_V_BACK_PORCH) {
+    } else if (v_scanline < HSTX_MODE_V_FRONT_PORCH + HSTX_MODE_V_SYNC_WIDTH + HSTX_MODE_V_BACK_PORCH) {
         ch->read_addr = (uintptr_t)vblank_line_vsync_off;
         ch->transfer_count = std::size(vblank_line_vsync_off);
     } else {
@@ -141,7 +160,7 @@ static void __scratch_x("") dma_irq_handler() {
         auto temp_ptr = scanline_buffer + (display_line & (HSTX_NUM_LINE_BUFFERS - 1)) * line_buf_size_words;
         ch->read_addr = (uintptr_t)temp_ptr;
 
-        ch->transfer_count = std::size(vactive_line) + (MODE_H_ACTIVE_PIXELS * 2) / sizeof(uint32_t);
+        ch->transfer_count = std::size(vactive_line) + (HSTX_MODE_H_ACTIVE_PIXELS * 2) / sizeof(uint32_t);
 
         // expand line if needed
         if(first) {
@@ -152,7 +171,7 @@ static void __scratch_x("") dma_irq_handler() {
 
     v_scanline++;
 
-    if(v_scanline == MODE_V_TOTAL_LINES) {
+    if(v_scanline == HSTX_MODE_V_TOTAL_LINES) {
         v_scanline = 0;
         in_scanline = 0;
     } else if(v_scanline == 2) {
@@ -176,7 +195,7 @@ void init_display() {
     reset_unreset_block_num_wait_blocking(RESET_HSTX);
 
     // 252MHz overclock set in main
-    clock_configure(clk_hstx, 0, CLOCKS_CLK_HSTX_CTRL_AUXSRC_VALUE_CLK_SYS, clock_get_hz(clk_sys), 126000000);
+    clock_configure(clk_hstx, 0, CLOCKS_CLK_HSTX_CTRL_AUXSRC_VALUE_CLK_SYS, clock_get_hz(clk_sys), HSTX_HSTX_MODE_CLOCK / 2);
 
     // Configure HSTX's TMDS encoder for RGB565
     // (it starts from bit 7)
@@ -290,9 +309,9 @@ void set_display_size(int w, int h) {
     // set h shift/v scale
     new_h_shift = 0;
     
-    new_scanline_step = (h << 16) / MODE_V_ACTIVE_LINES;
+    new_scanline_step = (h << 16) / HSTX_MODE_V_ACTIVE_LINES;
 
-    while(MODE_H_ACTIVE_PIXELS >> new_h_shift > w)
+    while(HSTX_MODE_H_ACTIVE_PIXELS >> new_h_shift > w)
         new_h_shift++;
 
     // check if we're actually changing scale
