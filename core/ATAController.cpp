@@ -497,10 +497,10 @@ void ATAController::write16(uint16_t addr, uint16_t data)
 
 void ATAController::ioComplete(int device, bool success, bool write)
 {
+    status &= ~Status_BSY;
+
     if(success)
     {
-        status &= ~Status_BSY;
-
         if(!write || pioWriteSectors)
             status |= Status_DRQ;
 
