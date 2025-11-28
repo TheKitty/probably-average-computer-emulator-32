@@ -165,6 +165,7 @@ static void __scratch_x("") dma_irq_handler() {
         // expand line if needed
         if(first) {
             temp_ptr += std::size(vactive_line);
+            temp_ptr += (HSTX_MODE_H_ACTIVE_PIXELS - 640) / 4;
             display_draw_line(nullptr, display_line, reinterpret_cast<uint16_t *>(temp_ptr));
         }
     }
