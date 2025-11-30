@@ -427,6 +427,12 @@ static int cpuThreadFunc(void *data)
     return 0;
 }
 
+static void speakerCallback(int8_t sample)
+{
+    int16_t sample16 = sample << 4;
+    SDL_PutAudioStreamData(audioStream, &sample16, sizeof(sample16));
+}
+
 int main(int argc, char *argv[])
 {
     int screenWidth = 640;
@@ -487,6 +493,8 @@ int main(int argc, char *argv[])
     // emu init
     auto &cpu = sys.getCPU();
     sys.addMemory(0, sizeof(ram), ram);
+
+    sys.getChipset().setSpeakerAudioCallback(speakerCallback);
 
     std::ifstream biosFile(basePath + biosPath, std::ios::binary);
 
