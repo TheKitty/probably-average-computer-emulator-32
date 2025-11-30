@@ -1226,8 +1226,8 @@ void Chipset::updateSpeaker(uint32_t target)
 
     speakerSampleTimer += elapsed << fracBits;
 
-    bool gate = !(systemControlB & 1);
-    bool ppiData = !(systemControlB & 2);
+    bool gate = (systemControlB & 1);
+    bool ppiData = (systemControlB & 2);
     bool pitData = pit.outState & (1 << 2);
 
     // gate low makes timer output high
