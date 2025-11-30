@@ -85,6 +85,7 @@ public:
     void setFixedDiskPresent(int index, bool present);
     void setTotalMemory(uint32_t size);
 
+    void setRTC(int seconds, int minutes, int hours, int days, int month, int year);
     void updateRTC();
 
 private:

@@ -867,6 +867,26 @@ void Chipset::setTotalMemory(uint32_t size)
     cmosRam[0x31] = extMemKB >> 8;
 }
 
+void Chipset::setRTC(int seconds, int minutes, int hours, int days, int month, int year)
+{
+    bool bcd = !(cmosRam[0xB] & (1 << 2));
+
+    auto setRTCVal = [this, bcd](int index, int value)
+    {
+        if(bcd)
+            value = (value % 10) | (value / 10) << 4;
+
+        cmosRam[index] = value;
+    };
+
+    setRTCVal(0, seconds);
+    setRTCVal(2, minutes);
+    setRTCVal(4, hours);
+    setRTCVal(7, days);
+    setRTCVal(8, month);
+    setRTCVal(9, year);
+}
+
 // should be called every second
 void Chipset::updateRTC()
 {
