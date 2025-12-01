@@ -268,7 +268,63 @@ void RAM_FUNC(VGACard::drawScanline)(int line, uint8_t *output)
             }
         }
     }
-    else // 16 col?
+#ifdef VGA_RGB565
+    else if(isHalfClock) // 16 col, half-clock/pixel-doubled (broken out to preserve perf of non-doubled)
+    {
+        int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
+        int hDispChars = crtcRegs[1] + 1;
+        int offset = crtcRegs[0x13];
+        int startAddr = crtcRegs[0xD] | crtcRegs[0xC] << 8;
+
+        uint8_t *ptr0;
+
+        ptr0 = plane0 + startAddr + offset * 2 * (line / charHeight);
+        // remap alternate lines for old modes
+        if((crtcRegs[0x17] & 1) == 0 && (line & 1))
+            ptr0 += 0x2000;
+
+        uint8_t planeEnable = attribPlaneEnable;
+
+        auto endPtr0 = ptr0 + hDispChars;
+
+        for(; ptr0 != endPtr0; ptr0++)
+        {
+            uint8_t byte0 = (planeEnable & (1 << 0)) ? ptr0[0x00000] : 0;
+            uint8_t byte1 = (planeEnable & (1 << 1)) ? ptr0[0x10000] : 0;
+            uint8_t byte2 = (planeEnable & (1 << 2)) ? ptr0[0x20000] : 0;
+            uint8_t byte3 = (planeEnable & (1 << 3)) ? ptr0[0x30000] : 0;
+
+            // interleave the four bytes
+            uint32_t v0 = byte0, v1 = byte1, v2 = byte2, v3 = byte3;
+            v0 = (v0 | v0 << 12) & 0x000F000F;
+            v0 = (v0 | v0 <<  6) & 0x03030303;
+            v0 = (v0 | v0 <<  3) & 0x11111111;
+
+            v1 = (v1 | v1 << 12) & 0x000F000F;
+            v1 = (v1 | v1 <<  6) & 0x03030303;
+            v1 = (v1 | v1 <<  3) & 0x11111111;
+
+            v2 = (v2 | v2 << 12) & 0x000F000F;
+            v2 = (v2 | v2 <<  6) & 0x03030303;
+            v2 = (v2 | v2 <<  3) & 0x11111111;
+
+            v3 = (v3 | v3 << 12) & 0x000F000F;
+            v3 = (v3 | v3 <<  6) & 0x03030303;
+            v3 = (v3 | v3 <<  3) & 0x11111111;
+
+            uint32_t interleaved = v0 | v1 << 1 | v2 << 2 | v3 << 3;
+
+            for(int j = 0; j < 8; j++)
+            {
+                auto index = interleaved >> 28;
+                interleaved <<= 4;
+
+                outputPixel2(paletteLookup16(index));
+            }
+        }
+    }
+#endif
+    else // 16 col
     {
         int charHeight = (crtcRegs[0x9] & 0x1F) + 1;
         int hDispChars = crtcRegs[1] + 1;
