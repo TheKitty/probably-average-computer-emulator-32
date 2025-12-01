@@ -332,6 +332,10 @@ static T doShiftLeft(T dest, int count, uint32_t &flags)
 
     bool carry = count > maxBits ? 0 : dest & (1 << (maxBits - count));
 
+    // if shift count is > 8 carry is set if the shift count is 16 or 24 and the low bit is set
+    if(sizeof(T) == 1 && count > 8 && (count & 7) == 0)
+        carry = dest & 1;
+
     T res = count >= maxBits ? 0 : dest << count;
 
     flags = (flags & ~(Flag_C | Flag_P | Flag_Z | Flag_S))
@@ -389,6 +393,10 @@ static T doShiftRight(T dest, int count, uint32_t &flags)
     int maxBits = sizeof(T) * 8;
 
     bool carry = count > maxBits ? 0 : dest & (1 << (count - 1));
+
+    // if shift count is > 8 carry is set if the shift count is 16 or 24 and the high bit is set
+    if(sizeof(T) == 1 && count > 8 && (count & 7) == 0)
+        carry = dest >> 7;
 
     T res = count >= maxBits ? 0 : dest >> count;
 
