@@ -296,7 +296,7 @@ int main()
     auto psram = reinterpret_cast<uint8_t *>(PSRAM_LOCATION);
     sys.addMemory(0, 8 * 1024 * 1024, psram);
 
-    //sys.setSpeakerAudioCallback(speakerCallback);
+    sys.getChipset().setSpeakerAudioCallback(speakerCallback);
 
     auto bios = _binary_bios_bin_start;
     auto biosSize = _binary_bios_bin_end - _binary_bios_bin_start;
