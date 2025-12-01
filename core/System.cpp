@@ -315,6 +315,7 @@ void Chipset::write(uint16_t addr, uint8_t data)
             if(pit.control[channel])
             {
                 int access = (pit.control[channel] >> 4) & 3;
+                int mode = (pit.control[channel] >> 1) & 7;
 
                 if(access == 1 || (access == 3 && !(pit.highByte & (1 << channel))))
                     pit.reload[channel] = (pit.reload[channel] & 0xFF00) | data;
@@ -322,9 +323,8 @@ void Chipset::write(uint16_t addr, uint8_t data)
                     pit.reload[channel] = (pit.reload[channel] & 0xFF) | data << 8;
 
                 // not active, wrote value
-                if(!(pit.active & (1 << channel)) && (access != 3 || (pit.highByte & (1 << channel))))
+                if((mode == 0 || !(pit.active & (1 << channel))) && (access != 3 || (pit.highByte & (1 << channel))))
                 {
-                    int mode = (pit.control[channel] >> 1) & 7;
                     // modes 1 and 5 start on gate input instead
                     if(mode != 1 && mode != 5)
                     {
