@@ -177,7 +177,6 @@ private:
 
     FIFO<uint16_t, 16> i8042Queue; // buffer inputs a bit
     uint8_t i8042ControllerCommand = 0, i8042DeviceCommand[2] = {0, 0};
-    uint8_t i8042PortEnabled = 0;
     uint8_t i8042Configuration = 0;
     uint8_t i8042DeviceSendEnabled = 0;
     uint8_t i8042OutputPort = 0;

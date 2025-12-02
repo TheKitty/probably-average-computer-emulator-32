@@ -734,7 +734,8 @@ uint8_t Chipset::acknowledgeInterrupt()
 void Chipset::sendKey(ATScancode scancode, bool down)
 {
     // check if enabled (assume keyboard is first port)
-    if(!(i8042PortEnabled & (1 << 0)))
+    bool clockDisabled = i8042Configuration & (1 << 4);
+    if(clockDisabled)
         return;
 
     if(!(i8042DeviceSendEnabled & (1 << 0)))
@@ -815,7 +816,8 @@ void Chipset::syncMouse()
         return;
 
     // check if enabled (assume mouse is second port)
-    if(!(i8042PortEnabled & (1 << 1)))
+    bool clockDisabled = i8042Configuration & (1 << 5);
+    if(clockDisabled)
         return;
 
     if(!(i8042DeviceSendEnabled & (1 << 1)))
@@ -1287,23 +1289,22 @@ void Chipset::write8042ControllerCommand(uint8_t data)
             i8042ControllerCommand = data;
             break;
         case 0xA7: // disable second port
-            i8042PortEnabled &= ~(1 << 1);
+            i8042Configuration |= 1 << 5; // set clock disable
             break;
         case 0xA8: // enable second port
-            i8042PortEnabled |= (1 << 1);
+            i8042Configuration &= ~(1 << 5); // clear clock disable
             break;
         case 0xAA: // controller test
-            i8042PortEnabled |= (3 << 0); //?
             i8042Queue.push(0x55); // pass
             break;
         case 0xAB: // first port test
             i8042Queue.push(0); // pass
             break;
         case 0xAD: // disable first port
-            i8042PortEnabled &= ~(1 << 0);
+            i8042Configuration |= 1 << 4; // set clock disable
             break;
         case 0xAE: // enable first port
-            i8042PortEnabled |= (1 << 0);
+            i8042Configuration &= ~(1 << 4); // clear clock disable
             break;
         case 0xD0: // read output port
             i8042Queue.push(i8042OutputPort);
@@ -1344,6 +1345,9 @@ void Chipset::write8042ControllerData(uint8_t data)
 // port 60, if no command in progress
 void Chipset::write8042DeviceCommand(uint8_t data, int devIndex)
 {
+    // writing a command enables the clock
+    i8042Configuration &= ~(1 << (4 + devIndex));
+
     switch(data)
     {
         case 0xE6: // set scaling 1:1
