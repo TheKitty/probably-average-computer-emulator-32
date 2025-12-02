@@ -115,7 +115,7 @@ enum ST7701Reg {
 // DMA logic
 
 #define DPI_DMA_CH_BASE 0
-#define DPI_NUM_DMA_CHANNELS 2
+#define DPI_NUM_DMA_CHANNELS 4
 
 static uint8_t cur_dma_ch = DPI_DMA_CH_BASE;
 
