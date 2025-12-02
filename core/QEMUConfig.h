@@ -1,3 +1,4 @@
+#pragma once
 #include "System.h"
 
 // currently only used to get seabios to load the vga bios
