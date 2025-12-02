@@ -4,6 +4,7 @@ target_sources(PACECore INTERFACE
     ATAController.cpp
     CPU.cpp
     FloppyController.cpp
+    GamePort.cpp
     QEMUConfig.cpp
     System.cpp
     VGACard.cpp
