@@ -71,6 +71,10 @@ void update_mouse_state(int8_t x, int8_t y, bool left, bool right)
     chipset.syncMouse();
 }
 
+void update_gamepad_state(uint8_t axis[2], uint8_t hat, uint32_t buttons)
+{
+}
+
 // the first argument serves no purpose other than making this function not shuffle regs around
 void __not_in_flash_func(display_draw_line)(void *, int line, uint16_t *buf)
 {
