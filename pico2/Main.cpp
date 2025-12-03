@@ -32,6 +32,7 @@
 
 #include "ATAController.h"
 #include "FloppyController.h"
+#include "GamePort.h"
 #include "QEMUConfig.h"
 #include "Scancode.h"
 #include "System.h"
@@ -43,6 +44,7 @@ static System sys;
 
 static ATAController ataPrimary(sys);
 static FloppyController fdc(sys);
+static GamePort gamePort(sys);
 static QEMUConfig qemuCfg(sys);
 static VGACard vga(sys);
 
@@ -73,6 +75,13 @@ void update_mouse_state(int8_t x, int8_t y, bool left, bool right)
 
 void update_gamepad_state(uint8_t axis[2], uint8_t hat, uint32_t buttons)
 {
+    // TODO: multiple gamepads/the other two axes
+    gamePort.setAxis(0, axis[0] / 255.0f);
+    gamePort.setAxis(1, axis[1] / 255.0f);
+
+    // TODO: button mapping
+    for(int i = 0; i < 4; i++)
+        gamePort.setButton(i, buttons & (1 << i));
 }
 
 // the first argument serves no purpose other than making this function not shuffle regs around
