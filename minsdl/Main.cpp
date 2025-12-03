@@ -393,6 +393,18 @@ static void pollEvents()
                     sys.getChipset().setMouseButton(2, event.button.down);
                 break;
 
+            case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+            {
+                float fValue = event.gaxis.value / 65536.0f + 0.5f;
+                gamePort.setAxis(event.gaxis.axis, fValue);
+                break;
+            }
+
+            case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            case SDL_EVENT_GAMEPAD_BUTTON_UP:
+                gamePort.setButton(event.gbutton.button, event.gbutton.down);
+                break;
+
             case SDL_EVENT_QUIT:
                 quit = true;
                 break;
@@ -567,7 +579,7 @@ int main(int argc, char *argv[])
     sys.getChipset().setRTC(tmbuf->tm_sec, tmbuf->tm_min, tmbuf->tm_hour, tmbuf->tm_mday, tmbuf->tm_mon + 1, tmbuf->tm_year + 1900);
 
     // SDL init
-    if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
+    if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD))
     {
         std::cerr << "Failed to init SDL!\n";
         return 1;
@@ -599,6 +611,15 @@ int main(int argc, char *argv[])
     }
 
     SDL_ResumeAudioStreamDevice(audioStream);
+
+    // controllers
+    auto gamepads = SDL_GetGamepads(nullptr);
+    for(auto gamepad = gamepads; *gamepad; gamepad++)
+    {
+        SDL_OpenGamepad(*gamepad);
+    }
+
+    SDL_free(gamepads);
 
     // timer
     SDL_AddTimerNS(838, systemTimerCallback, &sys); // ~1.193MHz
