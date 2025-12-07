@@ -691,7 +691,7 @@ void Chipset::setPICInput(int index, bool state)
 #endif
 }
 
-uint8_t Chipset::acknowledgeInterrupt()
+uint8_t RAM_FUNC(Chipset::acknowledgeInterrupt)()
 {
 #ifdef PICO_BUILD
     auto interrupts = save_and_disable_interrupts();
@@ -1744,7 +1744,7 @@ void RAM_FUNC(System::writeMem32WithCallback)(uint32_t addr, uint32_t data)
     }
 }
 
-const uint8_t *System::mapAddress(uint32_t addr) const
+const uint8_t *RAM_FUNC(System::mapAddress)(uint32_t addr) const
 {
     if(addr >= maxAddress)
         return nullptr;
