@@ -278,7 +278,6 @@ void Chipset::write(uint16_t addr, uint8_t data)
             dma.command = 0;
             dma.status = 0;
             dma.request = 0;
-            dma.tempData = 0;
             dma.flipFlop = false;
             dma.mask = 0xF;
             break;

@@ -96,10 +96,6 @@ private:
         uint16_t currentAddress[4];
         uint16_t currentWordCount[4];
 
-        uint16_t tempAddress;
-        uint16_t tempWordCount;
-        uint8_t tempData;
-
         uint8_t status;
         uint8_t command;
         uint8_t request;
