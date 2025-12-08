@@ -93,7 +93,6 @@ public:
     void updateSegmentDescriptorCache();
 
     void executeInstruction();
-    void executeInstruction0F(uint32_t addr, bool operandSize32, bool lock);
 
     // returns CS, IP, virt addr
     std::tuple<uint16_t, uint32_t, uint32_t> getOpStartAddr();
@@ -166,6 +165,9 @@ private:
         uint32_t tag;
         uint32_t data;
     };
+
+    void doExecuteInstruction();
+    void executeInstruction0F(uint32_t addr, bool operandSize32, bool lock);
 
     bool readMem8(uint32_t offset, Reg16 segment, uint8_t &data);
     bool readMem16(uint32_t offset, Reg16 segment, uint16_t &data);

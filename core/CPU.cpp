@@ -668,7 +668,7 @@ void CPU::run(int ms)
         if(halted) // TODO: sync until interrupt
             break;
 
-        executeInstruction();
+        doExecuteInstruction();
 
         // sync for interrupts
         cycleCount = sys.getCycleCount();
@@ -699,8 +699,25 @@ void CPU::updateSegmentDescriptorCache()
     setSegmentReg(CPU::Reg16::GS, reg(CPU::Reg16::GS));
 }
 
-[[gnu::always_inline]] // outside of tests this has exactly one caller
-inline void CPU::executeInstruction()
+// wrapper for tests
+void CPU::executeInstruction()
+{
+    doExecuteInstruction();
+}
+
+std::tuple<uint16_t, uint32_t, uint32_t> CPU::getOpStartAddr()
+{
+    auto addr = faultIP + getSegmentOffset(Reg16::CS);
+    return {reg(Reg16::CS), faultIP, addr};
+}
+
+void CPU::dumpTrace()
+{
+    trace.dump();
+}
+
+[[gnu::always_inline]] // this has exactly two callers, and one of them is only used by tests
+inline void CPU::doExecuteInstruction()
 {
     faultIP = reg(Reg32::EIP);
     auto addr = getSegmentOffset(Reg16::CS) + (reg(Reg32::EIP)++);
@@ -5537,17 +5554,6 @@ void CPU::executeInstruction0F(uint32_t addr, bool operandSize32, bool lock)
             fault(Fault::UD);
             break;
     }
-}
-
-std::tuple<uint16_t, uint32_t, uint32_t> CPU::getOpStartAddr()
-{
-    auto addr = faultIP + getSegmentOffset(Reg16::CS);
-    return {reg(Reg16::CS), faultIP, addr};
-}
-
-void CPU::dumpTrace()
-{
-    trace.dump();
 }
 
 bool CPU::readMem8(uint32_t offset, Reg16 segment, uint8_t &data)
