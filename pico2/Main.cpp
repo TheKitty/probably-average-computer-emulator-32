@@ -281,7 +281,7 @@ int main()
     pio_claim_sm_mask(pio1, 1 << 0);
 
     init_display();
-    set_display_size(320, 200);
+    set_display_size(640, 480);
 
     size_t psramSize = psram_init(PSRAM_CS_PIN);
 
@@ -337,10 +337,6 @@ int main()
 
     // set an initial time
     sys.getChipset().setRTC(28, 21, 14, 11, 9, 2025);
-
-    // FIXME: mode changes
-    set_display_size(640, 480);
-    update_display();
 
     multicore_launch_core1(core1Main);
 
