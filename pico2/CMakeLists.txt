@@ -89,7 +89,19 @@ set_target_properties(PACEPico2 PROPERTIES PICO_TARGET_LINKER_SCRIPT ${CMAKE_CUR
 pico_add_link_depend(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/memmap.ld)
 
 # usual setup
-target_link_libraries(PACEPico2 PACECore PACEPicoShared PACEPicoBIOS hardware_dma hardware_pwm hardware_spi pico_multicore pico_stdlib)
+target_link_libraries(PACEPico2
+    PACECore
+    PACEPicoShared
+    PACEPicoBIOS
+
+    hardware_dma
+    hardware_i2c
+    hardware_pwm
+    hardware_spi
+
+    pico_multicore
+    pico_stdlib
+)
 
 # additionally link to pio usb if needed by board
 if(PICO_BOARD STREQUAL "adafruit_fruit_jam")

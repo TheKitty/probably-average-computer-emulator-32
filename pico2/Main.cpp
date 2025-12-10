@@ -4,6 +4,7 @@
 
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+#include "hardware/i2c.h"
 #include "hardware/irq.h"
 #include "hardware/timer.h"
 #include "hardware/vreg.h"
@@ -287,6 +288,13 @@ static void initHardware()
     gpio_set_function(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, GPIO_FUNC_SIO);
     sleep_ms(10);
     gpio_put(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, 1);
+#endif
+
+    // init i2c_default if requested by board config
+#ifdef DEFAULT_I2C_CLOCK
+    i2c_init(i2c_default, DEFAULT_I2C_CLOCK);
+    gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
 #endif
 
     init_display();
