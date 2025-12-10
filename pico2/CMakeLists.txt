@@ -47,6 +47,7 @@ endif()
 
 # standalone boards
 if(PICO_BOARD STREQUAL "adafruit_fruit_jam")
+    set(AUDIO_DRIVER "i2s")
     set(DISPLAY_DRIVER "hstx")
 endif()
 

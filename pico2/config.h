@@ -74,9 +74,11 @@
 // so far the only self-contained board
 #elif defined(ADAFRUIT_FRUIT_JAM)
 
-// TODO: when we have sound, though may need some extra config here
-//#define AUDIO_I2S_CLOCK_PIN_BASE ADAFRUIT_FRUIT_JAM_I2S_BCLK_PIN
-//#define AUDIO_I2S_DATA_PIN       ADAFRUIT_FRUIT_JAM_I2S_DIN_PIN
+#define AUDIO_I2S_PIO 1
+#define AUDIO_I2S_CLOCK_PIN_BASE ADAFRUIT_FRUIT_JAM_I2S_BCLK_PIN
+#define AUDIO_I2S_DATA_PIN       ADAFRUIT_FRUIT_JAM_I2S_DIN_PIN
+
+#define TLV320DAC3100_ADDR 0x18
 
 #define DVI_CLK_P ADAFRUIT_FRUIT_JAM_DVI_CKP_PIN
 #define DVI_D0_P  ADAFRUIT_FRUIT_JAM_DVI_D0P_PIN
@@ -99,6 +101,8 @@
 // default LED, but inverted
 #define DISK_IO_LED_PIN PICO_DEFAULT_LED_PIN
 #define DISK_IO_LED_ACTIVE 0
+
+#define DEFAULT_I2C_CLOCK 100000
 
 #elif defined(PIMORONI_PICO_PLUS2_RP2350)
 // as I was using a mess of jumper wires, there's not really a right answer here
