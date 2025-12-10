@@ -280,6 +280,15 @@ int main()
     // before we init anything, reserve PIO1 SM0 for the clock program
     pio_claim_sm_mask(pio1, 1 << 0);
 
+    // reset fruit jam peripherals
+#ifdef ADAFRUIT_FRUIT_JAM
+    gpio_set_dir(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, GPIO_OUT);
+    gpio_put(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, 0);
+    gpio_set_function(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, GPIO_FUNC_SIO);
+    sleep_ms(10);
+    gpio_put(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, 1);
+#endif
+
     init_display();
     set_display_size(640, 480);
 
