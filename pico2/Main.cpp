@@ -252,7 +252,7 @@ static void setDiskLED(bool on)
 #endif
 }
 
-int main()
+static void initHardware()
 {
 #ifdef OVERCLOCK_500
     // this is tested on two of my boards
@@ -313,9 +313,10 @@ int main()
     gpio_put(DISK_IO_LED_PIN, !DISK_IO_LED_ACTIVE);
     gpio_set_function(DISK_IO_LED_PIN, GPIO_FUNC_SIO);
 #endif
+}
 
-    // emulator init
-
+static void initEmulator()
+{
     auto psram = reinterpret_cast<uint8_t *>(PSRAM_LOCATION);
     sys.addMemory(0, 8 * 1024 * 1024, psram);
 
@@ -348,6 +349,14 @@ int main()
     sys.getChipset().setRTC(28, 21, 14, 11, 9, 2025);
 
     multicore_launch_core1(core1Main);
+}
+
+int main()
+{
+    initHardware();
+
+    // emulator init
+    initEmulator();
 
     while(true)
     {
