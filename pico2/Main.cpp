@@ -246,7 +246,9 @@ static bool readConfigFile()
     return true;
 }
 
-static void setDiskLED(bool on)
+// controller is 0 for floppy, 1 for ata primary
+// device is 0-1
+static void setDiskLED(int controller, int device, bool on)
 {
 #ifdef DISK_IO_LED_PIN
     gpio_put(DISK_IO_LED_PIN, on == DISK_IO_LED_ACTIVE);
@@ -377,15 +379,21 @@ int main()
             switch(data)
             {
                 case 1: // floppy IO
-                    setDiskLED(true);
+                {
+                    int dev = floppyIO.getCurAccessDevice();
+                    setDiskLED(0, dev, true);
                     floppyIO.doCore0IO();
-                    setDiskLED(false);
+                    setDiskLED(0, dev, false);
                     break;
+                }
                 case 2: // ATA IO
-                    setDiskLED(true);
+                {
+                    int dev = ataPrimaryIO.getCurAccessDevice();
+                    setDiskLED(1, dev, true);
                     ataPrimaryIO.doCore0IO();
-                    setDiskLED(false);
+                    setDiskLED(1, dev, false);
                     break;
+                }
             }
         }
 

@@ -24,6 +24,8 @@ public:
         curAccessController = nullptr;
     }
 
+    int getCurAccessDevice() const {return curAccessDevice;}
+
     static const int maxDrives = 2;
 
 private:
@@ -60,6 +62,8 @@ public:
         curAccessController->ioComplete(curAccessDevice, curAccessSuccess, curAccessWrite);
         curAccessController = nullptr;
     }
+
+    int getCurAccessDevice() const {return curAccessDevice;}
 
     static const int maxDrives = 2;
 
