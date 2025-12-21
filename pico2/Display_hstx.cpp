@@ -118,10 +118,7 @@ static const uint32_t vactive_line[] = {
 
 static uint8_t cur_dma_ch = HSTX_DMA_CH_BASE;
 
-// pixel/line repeat
-static uint8_t h_shift = 0;
-static uint8_t new_h_shift = 0;
-
+// line repeat
 static volatile uint v_scanline = HSTX_NUM_DMA_CHANNELS;
 static uint32_t in_scanline = 0, last_in_scanline = 1;
 static uint32_t in_scanline_step = 1 << 16;
@@ -181,11 +178,9 @@ static void __scratch_x("") dma_irq_handler() {
 
         // set h/v shift
         if(need_mode_change) {
-            h_shift = new_h_shift;
             in_scanline_step = new_scanline_step;
 
             need_mode_change = false;
-            new_h_shift = 0xFF;
             new_scanline_step = 0;
         }
     }
@@ -307,17 +302,12 @@ void init_display() {
 }
 
 void set_display_size(int w, int h) {
-    // set h shift/v scale
-    new_h_shift = 0;
-    
+    // set v scale
     new_scanline_step = (h << 16) / HSTX_MODE_V_ACTIVE_LINES;
 
-    while(HSTX_MODE_H_ACTIVE_PIXELS >> new_h_shift > w)
-        new_h_shift++;
 
     // check if we're actually changing scale
-    if(new_scanline_step == in_scanline_step && new_h_shift == h_shift) {
-        new_h_shift = 0xFF;
+    if(new_scanline_step == in_scanline_step) {
         new_scanline_step = 0;
         return;
     }
@@ -327,9 +317,8 @@ void set_display_size(int w, int h) {
     if(started)
         return;
 
-    h_shift = new_h_shift;
     in_scanline_step = new_scanline_step;
-    new_h_shift = 0;
+    new_scanline_step = 0;
 }
 
 void update_display() {
@@ -338,7 +327,7 @@ void update_display() {
     if(!started) {
         started = true;
         dma_channel_start(HSTX_DMA_CH_BASE);
-    } else if(new_h_shift != 0xFF) {
+    } else if(new_scanline_step) {
         need_mode_change = true;
     }
 
