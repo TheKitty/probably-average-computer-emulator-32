@@ -7298,7 +7298,7 @@ void CPU::farCall(uint32_t newCS, uint32_t newIP, uint32_t retAddr, bool operand
                         // setup new stack
                         getCachedSegmentDescriptor(Reg16::SS) = newSSDesc;
                         reg(Reg16::SS) = newSS;
-                        stackAddress32 = newSSDesc.flags & SD_Size;
+                        stackAddrSize32 = stackAddress32 = newSSDesc.flags & SD_Size;
 
                         if(stackAddress32)
                             reg(Reg32::ESP) = newSP;
