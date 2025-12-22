@@ -90,11 +90,12 @@ static T doAdd(T dest, T src, uint32_t &flags)
     T res = dest + src;
 
     bool overflow = ~(dest ^ src) & (src ^ res) & signBit<T>();
+    bool carry4 = (dest ^ src ^ res) & 0x10;
 
     flags = (flags & ~(Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_O))
           | (res < dest ? Flag_C : 0) 
           | (parity(res) ? Flag_P : 0)
-          | ((res & 0xF) < (dest & 0xF) ? Flag_A : 0)
+          | (carry4 ? Flag_A : 0)
           | (res == 0 ? Flag_Z : 0)
           | (res & signBit<T>() ? Flag_S : 0)
           | (overflow ? Flag_O : 0);
@@ -110,11 +111,12 @@ static T doAddWithCarry(T dest, T src, uint32_t &flags)
 
     bool carry = res < dest || (res == dest && c);
     bool overflow = ~(dest ^ src) & (src ^ res) & signBit<T>();
+    bool carry4 = (dest ^ src ^ res) & 0x10;
 
     flags = (flags & ~(Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_O))
           | (carry ? Flag_C : 0) 
           | (parity(res) ? Flag_P : 0)
-          | ((res & 0xF) < (dest & 0xF) + c ? Flag_A : 0)
+          | (carry4 ? Flag_A : 0)
           | (res == 0 ? Flag_Z : 0)
           | (res & signBit<T>() ? Flag_S : 0)
           | (overflow ? Flag_O : 0);
@@ -479,11 +481,12 @@ static T doSub(T dest, T src, uint32_t &flags)
     T res = dest - src;
 
     bool overflow = (dest ^ src) & (dest ^ res) & signBit<T>();
+    bool carry4 = (dest ^ src ^ res) & 0x10;
 
     flags = (flags & ~(Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_O))
           | (src > dest ? Flag_C : 0) 
           | (parity(res) ? Flag_P : 0)
-          | ((res & 0xF) > (dest & 0xF) ? Flag_A : 0)
+          | (carry4 ? Flag_A : 0)
           | (res == 0 ? Flag_Z : 0)
           | (res & signBit<T>() ? Flag_S : 0)
           | (overflow ? Flag_O : 0);
@@ -499,11 +502,12 @@ static T doSubWithBorrow(T dest, T src, uint32_t &flags)
 
     bool carry = src > dest || (src == dest && c);
     bool overflow = (dest ^ src) & (dest ^ res) & signBit<T>();
+    bool carry4 = (dest ^ src ^ res) & 0x10;
 
     flags = (flags & ~(Flag_C | Flag_P | Flag_A | Flag_Z | Flag_S | Flag_O))
           | (carry ? Flag_C : 0) 
           | (parity(res) ? Flag_P : 0)
-          | (int(res & 0xF) > int(dest & 0xF) - c ? Flag_A : 0)
+          | (carry4 ? Flag_A : 0)
           | (res == 0 ? Flag_Z : 0)
           | (res & signBit<T>() ? Flag_S : 0)
           | (overflow ? Flag_O : 0);
