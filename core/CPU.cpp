@@ -625,7 +625,7 @@ void CPU::reset()
 
     stackAddrSize32 = false;
 
-    reg(Reg16::DX) = 3 << 8; // 386
+    reg(Reg16::DX) = 3 << 8 | 8; // 386, D1/D2 stepping
 
     reg(Reg32::CR0) = 0;
 
