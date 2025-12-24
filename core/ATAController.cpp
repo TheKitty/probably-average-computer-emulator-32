@@ -68,8 +68,9 @@ ATAController::ATAController(System &sys) : sys(sys)
 {
     // 1F0-1F7 (primary, 170-177 for secondary)
     sys.addIODevice(0x3F8, 0x1F0, 0, this);
-    // 3F6-3F7 (primary, 376-377 for secondary)
-    sys.addIODevice(0x3FE, 0x3F6, 0, this);
+    // 3F6 (primary, 376 for secondary)
+    // ATA-1 also specifies a read-only "drive address" at 3x7, which conflicts with the floppy controller
+    sys.addIODevice(0x3FF, 0x3F6, 0, this);
 
     sectorsPerTrack[0] = sectorsPerTrack[1] = 0;
 }
