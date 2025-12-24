@@ -330,6 +330,10 @@ void ATAController::write(uint16_t addr, uint8_t data)
 
                 case ATACommand::INIT_DEVICE_PARAMS:
                 {
+                    // make sure we have the calculated geometry
+                    if(!numHeads[dev])
+                        calculateCHS(dev);
+
                     int head = (deviceHead) & 0xF;
                     if(sectorCount == sectorsPerTrack[dev] && head == numHeads[dev] - 1)
                     {
