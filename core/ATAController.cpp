@@ -427,6 +427,8 @@ void ATAController::write(uint16_t addr, uint8_t data)
                     status &= ~(Status_BSY | Status_DRQ | Status_ERR);
                     status |= Status_DRDY;
                 }
+
+                error = 1; // self-test passed (or not present)
             }
             deviceControl = data;
             break;
