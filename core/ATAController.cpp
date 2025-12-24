@@ -25,6 +25,7 @@ enum class ATACommand
     RECALIBRATE            = 0x10,
     READ_SECTOR            = 0x20,
     WRITE_SECTOR           = 0x30,
+    READ_VERIFY_SECTOR     = 0x40,
     INIT_DEVICE_PARAMS     = 0x91, // "INITIALISE DEVICE PARAMETERS"
     PACKET                 = 0xA0,
     IDENTIFY_PACKET_DEVICE = 0xA1,
@@ -308,6 +309,25 @@ void ATAController::write(uint16_t addr, uint8_t data)
                     }
                     break;
                 }
+
+                case ATACommand::READ_VERIFY_SECTOR:
+                {
+                    // READ SECTOR(S) but with no data transfer
+                    if(!io || !io->getNumSectors(dev) || io->isATAPI(dev))
+                    {
+                        status |= Status_ERR;
+                        error = Error_ABRT;
+                    }
+                    else
+                    {
+                        status |= Status_DSC;
+
+                        flagIRQ();
+                    }
+
+                    break;
+                }
+
                 case ATACommand::INIT_DEVICE_PARAMS:
                 {
                     int head = (deviceHead) & 0xF;
