@@ -30,6 +30,7 @@ enum class ATACommand
     PACKET                 = 0xA0,
     IDENTIFY_PACKET_DEVICE = 0xA1,
     IDLE_IMMEDIATE         = 0xE1,
+    IDLE                   = 0xE3,
     IDENTIFY_DEVICE        = 0xEC,
     SET_FEATURES           = 0xEF,
 };
@@ -381,6 +382,7 @@ void ATAController::write(uint16_t addr, uint8_t data)
                     break;
 
                 case ATACommand::IDLE_IMMEDIATE:
+                case ATACommand::IDLE:
                 {
                     // yep, we're idling. much power is being saved. 100%
                     flagIRQ();
