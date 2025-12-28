@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <ctime>
 #include <forward_list>
 #include <string>
 #include <string_view>
@@ -58,7 +59,11 @@ static FileFloppyIO floppyIO;
 
 static int rtcSeconds = 0;
 
+static bool wifiConnected = false;
+
 static void initWifi(const char *ssid, const char *pass);
+
+static void ntpRequest(const char *addr);
 
 static void speakerCallback(int8_t sample)
 {
@@ -264,6 +269,11 @@ static bool readConfigFile()
             // this does rely on ssid being in the config first...
             initWifi(wifiSSID.c_str(), value.data());
         }
+        else if(key == "ntp-ip")
+        {
+            // ip because we don't do DNS yet
+            ntpRequest(value.data());
+        }
         else
             printf("unhandled config line %s\n", buf);
     }
@@ -383,6 +393,80 @@ static void initWifi(const char *ssid, const char *pass)
     }
 
     printf("wifi connected.\n");
+
+    wifiConnected = true;
+#endif
+}
+
+static void setRTCFromNTP(uint32_t ntpTime)
+{
+    time_t time = ntpTime - 2208988800;  // 1900 -> 1970
+
+    tm *utc = gmtime(&time);
+
+    sys.getChipset().setRTC(utc->tm_sec, utc->tm_min, utc->tm_hour, utc->tm_mday, utc->tm_mon + 1, utc->tm_year + 1900);
+}
+
+static void ntpRequest(const char *addr)
+{
+    if(!wifiConnected)
+        return;
+
+    static const int ntpPort = 123;
+    static const int ntpMessageLen = 48;
+
+#if defined(WIFI_ESP32_NINA)
+    nina_sockaddr saddr;
+
+    // TODO: DNS (or even less basic ip parsing)
+    int a, b, c, d;
+    sscanf(addr, "%i.%i.%i.%i", &a, &b, &c, &d);
+
+    saddr.addr = a | b << 8 | c << 16 | d << 24;
+    saddr.port = __builtin_bswap16(ntpPort);
+
+    // get socket
+    int fd = nina_socket(2 /*AF_INET*/, 2 /*SOCK_DGRAM*/, 0);
+
+    // this is UDP, so try a few times
+    bool done = false;
+    for(int retry = 0; retry < 10; retry++)
+    {
+        // send message
+        uint8_t buf[ntpMessageLen]{};
+        buf[0] = 0x1B;
+
+        nina_sendto(fd, buf, sizeof(buf), &saddr);
+
+        // wait for reply
+        // TODO: async?
+        auto timeout = make_timeout_time_ms(1000);
+
+        while(!time_reached(timeout) && !done)
+        {
+            if(nina_poll(fd) & 1/*read*/)
+            {
+                nina_sockaddr recvAddr;
+                if(nina_recvfrom(fd, buf, ntpMessageLen, &recvAddr) == ntpMessageLen)
+                {
+                    int mode = buf[0] & 7;
+                    int stratum = buf[1];
+
+                    // check message
+                    if(recvAddr.addr == saddr.addr && mode == 4 && stratum != 0)
+                    {
+                        setRTCFromNTP(buf[40] << 24 | buf[41] << 16 | buf[42] << 8 | buf[43]);
+                        done = true;
+                    }
+                }
+            }
+        }
+
+        if(done)
+            break;
+    }
+
+    nina_close(fd);
 #endif
 }
 
@@ -407,17 +491,17 @@ static void initEmulator()
     ataPrimary.setIOInterface(&ataPrimaryIO);
     fdc.setIOInterface(&floppyIO);
 
+    sys.reset();
+
+    // set an initial time
+    sys.getChipset().setRTC(28, 21, 14, 11, 9, 2025);
+
     if(!readConfigFile())
     {
         // load a default image
         ataPrimaryIO.openDisk(0, "hd0.img");
         sys.getChipset().setFixedDiskPresent(0, ataPrimaryIO.getNumSectors(0) && !ataPrimaryIO.isATAPI(0));
     }
-
-    sys.reset();
-
-    // set an initial time
-    sys.getChipset().setRTC(28, 21, 14, 11, 9, 2025);
 
     multicore_launch_core1(core1Main);
 }
