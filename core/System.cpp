@@ -6,6 +6,7 @@
 
 #ifdef PICO_BUILD
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 #endif
 
 #ifdef PICO_CPU_IN_RAM
@@ -1811,6 +1812,18 @@ void RAM_FUNC(System::writeIOPort)(uint16_t addr, uint8_t data)
     {
         if((addr & dev.ioMask) == dev.ioValue)
             return dev.dev->write(addr, data);
+    }
+
+    if(addr == 0xCF9 && data == 6) // PCI reboot (seabios uses this to reboot)
+    {
+        // TODO: this needs to be a hard reboot, so the BIOS should be reset
+        // but we can't do that easily yet
+#ifdef PICO_BUILD
+        // we can reboot the entire system on the pico build though
+        watchdog_reboot(0, SRAM_END, 1);
+#else
+        reset();
+#endif
     }
 
 #ifndef NDEBUG
