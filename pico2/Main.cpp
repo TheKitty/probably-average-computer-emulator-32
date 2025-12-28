@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <forward_list>
+#include <string>
 #include <string_view>
 
 #include "hardware/clocks.h"
@@ -30,6 +31,7 @@
 #include "BIOS.h"
 #include "DiskIO.h"
 #include "Display.h"
+#include "wifi_nina.h"
 
 #include "i2c/seesaw.h"
 
@@ -55,6 +57,8 @@ static FileATAIO ataPrimaryIO;
 static FileFloppyIO floppyIO;
 
 static int rtcSeconds = 0;
+
+static void initWifi(const char *ssid, const char *pass);
 
 static void speakerCallback(int8_t sample)
 {
@@ -203,6 +207,8 @@ static bool readConfigFile()
     size_t off = 0;
     UINT read;
 
+    std::string wifiSSID;
+
     while(!f_eof(&configFile))
     {
         // get line
@@ -249,6 +255,14 @@ static bool readConfigFile()
         {
             int index = key[6] - '0';
             floppyIO.openDisk(index, value.data());
+        }
+        else if(key == "wifi-ssid")
+            wifiSSID = value;
+        else if(key == "wifi-pass")
+        {
+            // init wifi when we have ssid and password
+            // this does rely on ssid being in the config first...
+            initWifi(wifiSSID.c_str(), value.data());
         }
         else
             printf("unhandled config line %s\n", buf);
@@ -306,6 +320,11 @@ static void initHardware()
 
     // reset fruit jam peripherals
 #ifdef ADAFRUIT_FRUIT_JAM
+    // wifi cs
+    gpio_set_dir(ADAFRUIT_FRUIT_JAM_WIFI_CS_PIN, GPIO_OUT);
+    gpio_put(ADAFRUIT_FRUIT_JAM_WIFI_CS_PIN, true);
+    gpio_set_function(ADAFRUIT_FRUIT_JAM_WIFI_CS_PIN, GPIO_FUNC_SIO);
+
     gpio_set_dir(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, GPIO_OUT);
     gpio_put(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, 0);
     gpio_set_function(ADAFRUIT_FRUIT_JAM_PERIPH_RESET_PIN, GPIO_FUNC_SIO);
@@ -346,6 +365,24 @@ static void initHardware()
     gpio_set_dir(DISK_IO_LED_PIN, true);
     gpio_put(DISK_IO_LED_PIN, !DISK_IO_LED_ACTIVE);
     gpio_set_function(DISK_IO_LED_PIN, GPIO_FUNC_SIO);
+#endif
+}
+
+static void initWifi(const char *ssid, const char *pass)
+{
+    // TODO: also regular pico w stuff
+#if defined(WIFI_ESP32_NINA)
+    printf("connecting to wifi...\n");
+
+    nina_spi_init();
+
+    if(!nina_connect_timeout(ssid, pass, 10000))
+    {
+        printf("failed to connect\n");
+        return;
+    }
+
+    printf("wifi connected.\n");
 #endif
 }
 
