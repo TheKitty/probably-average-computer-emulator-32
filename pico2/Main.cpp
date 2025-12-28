@@ -44,6 +44,17 @@
 #include "System.h"
 #include "VGACard.h"
 
+// if any of the LED pins are defined, all of them should be
+#ifdef DISK_IO_FD0_LED_PIN
+static const int diskLedPins[]
+{
+    DISK_IO_FD0_LED_PIN,
+    DISK_IO_FD1_LED_PIN,
+    DISK_IO_ATA_PRI0_LED_PIN,
+    DISK_IO_ATA_PRI1_LED_PIN
+};
+#endif
+
 static FATFS fs;
 
 static System sys;
@@ -287,16 +298,8 @@ static bool readConfigFile()
 // device is 0-1
 static void setDiskLED(int controller, int device, bool on)
 {
-#ifdef DISK_IO_LED_PIN
-    static const int ledPins[]
-    {
-        DISK_IO_FD0_LED_PIN,
-        DISK_IO_FD1_LED_PIN,
-        DISK_IO_ATA_PRI0_LED_PIN,
-        DISK_IO_ATA_PRI1_LED_PIN
-    };
-
-    gpio_put(ledPins[controller * 2 + device], on == DISK_IO_LED_ACTIVE);
+#ifdef DISK_IO_FD0_LED_PIN
+    gpio_put(diskLedPins[controller * 2 + device], on == DISK_IO_LED_ACTIVE);
 #endif
 }
 
@@ -370,11 +373,14 @@ static void initHardware()
 
     init_audio();
 
-    // init blinky disk led
-#ifdef DISK_IO_LED_PIN
-    gpio_set_dir(DISK_IO_LED_PIN, true);
-    gpio_put(DISK_IO_LED_PIN, !DISK_IO_LED_ACTIVE);
-    gpio_set_function(DISK_IO_LED_PIN, GPIO_FUNC_SIO);
+    // init blinky disk leds
+#ifdef DISK_IO_FD0_LED_PIN
+    for(auto &pin : diskLedPins)
+    {
+        gpio_set_dir(pin, true);
+        gpio_put(pin, !DISK_IO_LED_ACTIVE);
+        gpio_set_function(pin, GPIO_FUNC_SIO);
+    }
 #endif
 }
 
