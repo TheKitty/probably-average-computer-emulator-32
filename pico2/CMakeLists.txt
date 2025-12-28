@@ -3,9 +3,9 @@ enable_language(ASM)
 add_executable(PACEPico2
     Main.cpp
 
-    psram.c
+    driver/psram.c
 
-    i2c/seesaw.cpp
+    driver/i2c/seesaw.cpp
 )
 
 # some additional target-specific options
@@ -61,8 +61,8 @@ if(NOT DISPLAY_DRIVER)
 endif()
 
 target_sources(PACEPico2 PRIVATE
-    Audio_${AUDIO_DRIVER}.cpp
-    Display_${DISPLAY_DRIVER}.cpp
+    driver/Audio_${AUDIO_DRIVER}.cpp
+    driver/Display_${DISPLAY_DRIVER}.cpp
 )
 
 # UART config
@@ -78,14 +78,14 @@ endif()
 # faster flash access
 target_compile_definitions(PACEPico2 PRIVATE PICO_EMBED_XIP_SETUP=1)
 # for config.h
-target_include_directories(PACEPico2 PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(PACEPico2 PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/driver)
 
 # PIO headers
 pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/clock.pio)
-pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/dbi-8bit.pio)
-pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/dbi-spi.pio)
-pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/dpi.pio)
-pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/i2s.pio)
+pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/driver/dbi-8bit.pio)
+pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/driver/dbi-spi.pio)
+pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/driver/dpi.pio)
+pico_generate_pio_header(PACEPico2 ${CMAKE_CURRENT_LIST_DIR}/driver/i2s.pio)
 
 #custom linker script (puts all of CPU.cpp in RAM)
 set_target_properties(PACEPico2 PROPERTIES PICO_TARGET_LINKER_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/memmap.ld)
