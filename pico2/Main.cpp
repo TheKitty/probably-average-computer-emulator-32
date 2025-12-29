@@ -303,6 +303,61 @@ static void setDiskLED(int controller, int device, bool on)
 #endif
 }
 
+static void initPreBIOSVGA()
+{
+    // set up the emulated VGA card so we can output text before the BIOS has started
+    auto vgaRAM = vga.getRAM();
+
+    // find 16x16 font in VGA BIOS (assuming seavgabios)
+    auto vgaBIOS = reinterpret_cast<const uint8_t *>(_binary_vgabios_bin_start);
+    static const uint8_t char1[]{0x00, 0x00, 0x7e, 0x81, 0xa5, 0x81, 0x81, 0xbd, 0x99, 0x81, 0x81, 0x7e, 0x00, 0x00, 0x00, 0x00};
+
+    int fontOffset = 0;
+    for(int i = 0; i < 0x10000; i++)
+    {
+        if(memcmp(char1, vgaBIOS + i, sizeof(char1)) == 0)
+        {
+            fontOffset = i - 16;
+            break;
+        }
+    }
+
+    // copy to VGA RAM
+    for(int c = 0; c < 256; c++)
+    {
+        for(int i = 0; i < 16; i++)
+            vgaRAM[0x20000 + c * 32 + i] = vgaBIOS[fontOffset + c * 16 + i];
+    }
+
+    vga.write(0x3C4, 1); vga.write(0x3C5, 1); // 8px wide chars
+
+    vga.write(0x3D4, 0x01); vga.write(0x03D5, 79); // horiz chars = 80
+    vga.write(0x3D4, 0x09); vga.write(0x03D5, 0xF); // char height = 16
+    vga.write(0x3D4, 0x0C); vga.write(0x03D5, 0); // start addr
+    vga.write(0x3D4, 0x0D); vga.write(0x03D5, 0); // ...
+    vga.write(0x3D4, 0x13); vga.write(0x03D5, 40); // offset
+
+    // palettes
+    vga.read(0x3DA); // reset attrib addr/data
+    for(int i = 0; i < 16; i++)
+    {
+        // identity mapping
+        vga.write(0x3C0, i);
+        vga.write(0x3C0, i);
+    }
+
+    // two colours
+    vga.write(0x3C8, 0);
+
+    vga.write(0x3C9, 0);
+    vga.write(0x3C9, 0);
+    vga.write(0x3C9, 0);
+
+    vga.write(0x3C9, 0x1F);
+    vga.write(0x3C9, 0x1F);
+    vga.write(0x3C9, 0x1F);
+}
+
 static void initHardware()
 {
 #ifdef OVERCLOCK_500
@@ -357,6 +412,8 @@ static void initHardware()
 
     init_display();
     set_display_size(640, 480);
+
+    initPreBIOSVGA();
 
     size_t psramSize = psram_init(PSRAM_CS_PIN);
 
