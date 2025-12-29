@@ -14,6 +14,8 @@ public:
 
     void setTextWidthHack(bool enabled);
 
+    uint8_t *getRAM() {return ram;}
+
     uint8_t read(uint16_t addr) override;
     uint16_t read16(uint16_t addr) override {return read(addr) | read(addr + 1) << 8;}
 
